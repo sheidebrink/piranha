@@ -1,0 +1,94 @@
+{
+  "claimTypes": {
+    "auto": {
+      "requiredFields": [
+        "claimNumber",
+        "dateOfLoss",
+        "policyNumber",
+        "insuredName",
+        "vehicleVIN",
+        "damageDescription"
+      ],
+      "tabs": [
+        "General Info",
+        "Vehicle Details",
+        "Damage Assessment",
+        "Coverage",
+        "Documents",
+        "Notes"
+      ],
+      "fieldValidations": {
+        "claimNumber": {
+          "required": true,
+          "pattern": "^[A-Z]{2}\\d{8}$"
+        },
+        "vehicleVIN": {
+          "required": true,
+          "minLength": 17,
+          "maxLength": 17
+        },
+        "dateOfLoss": {
+          "required": true,
+          "type": "date"
+        }
+      }
+    },
+    "property": {
+      "requiredFields": [
+        "claimNumber",
+        "dateOfLoss",
+        "policyNumber",
+        "insuredName",
+        "propertyAddress",
+        "lossType"
+      ],
+      "tabs": [
+        "General Info",
+        "Property Details",
+        "Loss Details",
+        "Coverage",
+        "Documents",
+        "Notes"
+      ],
+      "fieldValidations": {
+        "claimNumber": {
+          "required": true,
+          "pattern": "^[A-Z]{2}\\d{8}$"
+        },
+        "dateOfLoss": {
+          "required": true,
+          "type": "date"
+        }
+      }
+    },
+    "liability": {
+      "requiredFields": [
+        "claimNumber",
+        "dateOfLoss",
+        "policyNumber",
+        "insuredName",
+        "incidentDescription",
+        "injuryType"
+      ],
+      "tabs": [
+        "General Info",
+        "Incident Details",
+        "Parties Involved",
+        "Coverage",
+        "Medical Records",
+        "Documents",
+        "Notes"
+      ],
+      "fieldValidations": {
+        "claimNumber": {
+          "required": true,
+          "pattern": "^[A-Z]{2}\\d{8}$"
+        },
+        "dateOfLoss": {
+          "required": true,
+          "type": "date"
+        }
+      }
+    }
+  }
+}

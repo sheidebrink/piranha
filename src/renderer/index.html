@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Adjuster Assistant</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="control-panel">
+    <div class="nav-controls">
+      <input type="text" id="urlInput" placeholder="Enter 3rd party app URL" value="https://test-cbcs.ventivclient.com/ivos/login.jsp" />
+      <button id="loadBtn">Load</button>
+      <button id="backBtn">← Back</button>
+      <button id="forwardBtn">Forward →</button>
+      <button id="metricsBtn">View Metrics</button>
+      <button id="clearSessionBtn" title="Clear cookies and session">Clear Session</button>
+    </div>
+    <div class="session-info">
+      <span id="currentClaim" class="current-claim"></span>
+      <span id="sessionStats">Session: 0 claims | Avg: 0m</span>
+    </div>
+  </div>
+  
+  <div id="breadcrumbs" class="breadcrumbs"></div>
+  
+  <div id="tabBar" class="tab-bar">
+    <div id="tabs" class="tabs"></div>
+    <button id="newTabBtn" class="new-tab-btn" title="New Tab">+</button>
+  </div>
+
+  <div id="metricsModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Performance Metrics</h2>
+      <div id="metricsContent"></div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

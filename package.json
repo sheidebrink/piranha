@@ -1,0 +1,24 @@
+{
+  "name": "adjuster-assistant",
+  "version": "1.0.0",
+  "description": "Electron app to assist adjusters with 3rd party SaaS navigation and tracking",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": [
+    "electron",
+    "claims",
+    "adjuster"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.0"
+  }
+}
