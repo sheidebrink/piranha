@@ -3,3 +3,5 @@ dist/
 *.db
 *.log
 .DS_Store
+config/email-config.json
+window-bounds.json

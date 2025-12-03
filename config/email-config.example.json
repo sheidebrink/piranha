@@ -1,0 +1,12 @@
+{
+  "O365": {
+    "enabled": true,
+    "appId": "YOUR_AZURE_APP_ID_HERE",
+    "clientSecret": "YOUR_CLIENT_SECRET_HERE",
+    "tenantId": "YOUR_TENANT_ID_HERE",
+    "scopes": [
+      "https://graph.microsoft.com/.default"
+    ],
+    "redirectUri": "http://localhost:3000/auth/callback"
+  }
+}

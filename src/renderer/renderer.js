@@ -4,6 +4,7 @@ const metricsBtn = document.getElementById('metricsBtn');
 const backBtn = document.getElementById('backBtn');
 const forwardBtn = document.getElementById('forwardBtn');
 const clearSessionBtn = document.getElementById('clearSessionBtn');
+const emailBtn = document.getElementById('emailBtn');
 const sessionStats = document.getElementById('sessionStats');
 const currentClaim = document.getElementById('currentClaim');
 const metricsModal = document.getElementById('metricsModal');
@@ -21,7 +22,7 @@ function renderTabs(tabList) {
   tabs.innerHTML = tabList.map(tab => `
     <div class="tab ${tab.active ? 'active' : ''}" data-tab-id="${tab.id}">
       <span class="tab-title">${tab.title}</span>
-      <button class="tab-close" data-tab-id="${tab.id}" title="Close tab">×</button>
+      ${tab.closable !== false ? `<button class="tab-close" data-tab-id="${tab.id}" title="Close tab">×</button>` : ''}
     </div>
   `).join('');
 
@@ -63,17 +64,22 @@ clearSessionBtn.addEventListener('click', async () => {
   }
 });
 
+// Email button
+emailBtn.addEventListener('click', async () => {
+  await window.electronAPI.openEmailTab();
+});
+
 let navigationHistory = [];
 let currentIndex = -1;
 
-// Auto-load default URL on startup
-window.addEventListener('DOMContentLoaded', () => {
-  const defaultUrl = urlInput.value;
-  if (defaultUrl) {
-    window.electronAPI.loadUrl(defaultUrl);
-    addToHistory(defaultUrl);
-  }
-});
+// Don't auto-load - tabs are created by main process now
+// window.addEventListener('DOMContentLoaded', () => {
+//   const defaultUrl = urlInput.value;
+//   if (defaultUrl) {
+//     window.electronAPI.loadUrl(defaultUrl);
+//     addToHistory(defaultUrl);
+//   }
+// });
 
 // Load URL into BrowserView
 loadBtn.addEventListener('click', async () => {

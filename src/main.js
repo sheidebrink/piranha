@@ -2,6 +2,7 @@ const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const path = require('path');
 const MetricsTracker = require('./metrics/tracker');
 const Database = require('./database/db');
+const EmailService = require('./services/email-service');
 
 let mainWindow;
 let browserViews = new Map(); // Map of tabId -> BrowserView
@@ -9,6 +10,8 @@ let activeTabId = null;
 let tabCounter = 0;
 let metricsTracker;
 let db;
+let emailService;
+let emailTabId = null; // Special tab for email inbox
 
 // Window bounds management
 function loadWindowBounds() {
@@ -66,8 +69,13 @@ function createWindow() {
     // Don't open DevTools for main window - it gets covered by BrowserView
     // mainWindow.webContents.openDevTools();
 
-    // Create initial tab
-    createNewTab('https://test-cbcs.ventivclient.com/ivos/login.jsp');
+    // Create email inbox tab (permanent, unclosable) - this will be active first
+    createEmailTab();
+
+    // Create initial claims tab in background after a short delay
+    setTimeout(() => {
+        createNewTab('https://test-cbcs.ventivclient.com/ivos/login.jsp', 'Claims App', false);
+    }, 500);
 
     mainWindow.on('resize', () => {
         updateBrowserViewBounds();
@@ -81,9 +89,13 @@ function createWindow() {
     mainWindow.on('close', saveWindowBounds);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     db = new Database();
     metricsTracker = new MetricsTracker(db);
+
+    // Initialize email service
+    emailService = new EmailService();
+    await emailService.initialize();
 
     createWindow();
 
@@ -101,7 +113,36 @@ app.on('window-all-closed', () => {
 });
 
 // Helper functions for tab management
-function createNewTab(url = null, title = 'New Tab') {
+function createEmailTab() {
+    const tabId = ++tabCounter;
+    emailTabId = tabId;
+
+    // Use default session for email tab (no preload script)
+    const browserView = new BrowserView({
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+            // No preload script - this is our own HTML file
+        }
+    });
+
+    browserView.webContents.loadFile('src/renderer/email-inbox.html');
+
+    browserViews.set(tabId, {
+        view: browserView,
+        url: 'email://inbox',
+        title: '📧 Email',
+        isEmail: true,
+        closable: false
+    });
+
+    switchToTab(tabId);
+    sendTabsUpdate();
+
+    return tabId;
+}
+
+function createNewTab(url = null, title = 'New Tab', switchTo = true) {
     const tabId = ++tabCounter;
 
     const { session } = require('electron');
@@ -165,14 +206,22 @@ function createNewTab(url = null, title = 'New Tab') {
     browserViews.set(tabId, {
         view: browserView,
         url: url || '',
-        title: title
+        title: title,
+        isEmail: false,
+        closable: true
     });
 
     if (url) {
         browserView.webContents.loadURL(url);
     }
 
-    switchToTab(tabId);
+    // Only switch if requested AND if we're not creating a background tab
+    if (switchTo) {
+        switchToTab(tabId);
+    } else {
+        // Just add to the map, don't switch
+        console.log(`Created tab ${tabId} in background: ${title}`);
+    }
     sendTabsUpdate();
 
     return tabId;
@@ -182,15 +231,19 @@ function switchToTab(tabId) {
     const tabData = browserViews.get(tabId);
     if (!tabData) return;
 
+    console.log(`=== Switching to tab ${tabId}: ${tabData.title} ===`);
+
     // Remove current BrowserView
     if (activeTabId !== null) {
         const currentTab = browserViews.get(activeTabId);
         if (currentTab) {
+            console.log(`Removing current tab ${activeTabId}: ${currentTab.title}`);
             mainWindow.removeBrowserView(currentTab.view);
         }
     }
 
     // Add new BrowserView
+    console.log(`Adding BrowserView for tab ${tabId}: ${tabData.title}`);
     mainWindow.setBrowserView(tabData.view);
     activeTabId = tabId;
 
@@ -201,6 +254,12 @@ function switchToTab(tabId) {
 function closeTab(tabId) {
     const tabData = browserViews.get(tabId);
     if (!tabData) return;
+
+    // Don't allow closing the email tab
+    if (tabData.isEmail || !tabData.closable) {
+        console.log('Cannot close email tab');
+        return;
+    }
 
     // Destroy the BrowserView
     if (activeTabId === tabId) {
@@ -263,7 +322,8 @@ function sendTabsUpdate() {
         id,
         title: data.title || 'New Tab',
         url: data.url,
-        active: id === activeTabId
+        active: id === activeTabId,
+        closable: data.closable !== false
     }));
 
     mainWindow.webContents.send('tabs-updated', tabs);
@@ -332,6 +392,53 @@ ipcMain.handle('show-browser-view', async () => {
     }
 });
 
+// Email IPC handlers
+ipcMain.handle('get-emails', async (event, options) => {
+    try {
+        return await emailService.getEmails(options.userEmail, {
+            top: options.top,
+            folder: options.folder
+        });
+    } catch (error) {
+        console.error('Error in get-emails:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('get-email-body', async (event, options) => {
+    try {
+        return await emailService.getEmailBody(options.userEmail, options.messageId);
+    } catch (error) {
+        console.error('Error in get-email-body:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('mark-email-read', async (event, options) => {
+    try {
+        return await emailService.markAsRead(options.userEmail, options.messageId);
+    } catch (error) {
+        console.error('Error in mark-email-read:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('search-emails', async (event, options) => {
+    try {
+        return await emailService.searchEmails(options.userEmail, options.query);
+    } catch (error) {
+        console.error('Error in search-emails:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('open-email-tab', async () => {
+    // Switch to email tab if it exists
+    if (emailTabId !== null) {
+        switchToTab(emailTabId);
+    }
+});
+
 // Listen for navigation events to detect claim changes
 ipcMain.on('navigation-detected', (event, data) => {
     const { url, title } = data;
@@ -346,6 +453,43 @@ ipcMain.on('navigation-detected', (event, data) => {
     }
 });
 
+// Helper function to search for emails related to a claim
+async function searchClaimEmails(claimNumber) {
+    try {
+        console.log(`Searching emails for claim: ${claimNumber}`);
+        const emails = await emailService.searchEmails('mhuss@cbcsclaims.com', claimNumber);
+
+        const emailCount = emails ? emails.length : 0;
+        console.log(`Found ${emailCount} email(s) for claim ${claimNumber}`);
+
+        // Show notification
+        const { Notification } = require('electron');
+        const notification = new Notification({
+            title: `📧 ${emailCount} Email${emailCount !== 1 ? 's' : ''} Found`,
+            body: emailCount > 0
+                ? `Found ${emailCount} email${emailCount > 1 ? 's' : ''} related to claim ${claimNumber}.\nClick to view in inbox.`
+                : `No emails found for claim ${claimNumber}.`,
+            icon: null,
+            timeoutType: 'default'
+        });
+
+        if (emailCount > 0) {
+            notification.on('click', () => {
+                // Switch to email tab
+                if (emailTabId !== null) {
+                    switchToTab(emailTabId);
+                    // Send search query to email tab
+                    mainWindow.webContents.send('search-emails-for-claim', claimNumber);
+                }
+            });
+        }
+
+        notification.show();
+    } catch (error) {
+        console.error('Error searching claim emails:', error);
+    }
+}
+
 ipcMain.handle('track-event', async (event, eventData) => {
     // If a claim is detected, start tracking it
     if (eventData.type === 'claim_detected' && eventData.claimId) {
@@ -357,9 +501,20 @@ ipcMain.handle('track-event', async (event, eventData) => {
         // Send claim info to renderer
         mainWindow.webContents.send('claim-info-updated', {
             claimId: eventData.claimId,
+            claimNumber: eventData.claimNumber,
             claimantName: eventData.claimantName,
             claimType
         });
+
+        // Search for emails related to this claim
+        if (eventData.claimNumber) {
+            searchClaimEmails(eventData.claimNumber);
+        }
+    }
+
+    // Handle explicit email search request
+    if (eventData.type === 'search_claim_emails' && eventData.claimNumber) {
+        searchClaimEmails(eventData.claimNumber);
     }
 
     metricsTracker.trackEvent(eventData);

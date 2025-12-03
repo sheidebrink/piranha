@@ -73,6 +73,35 @@ window.addEventListener('DOMContentLoaded', () => {
         let claimId = urlParams.get('current_claim_id') || urlParams.get('claim_id');
         let claimantId = urlParams.get('current_claimant_id') || urlParams.get('claimant_id');
         let insuranceType = urlParams.get('insurance_type');
+        let claimNumber = null;
+        
+        // Look for claim number in the page (WC2000090249 format)
+        const claimNumberElement = document.querySelector('#claimNumber, .ClaimNbr_Val, [title="Claim Number"]');
+        if (claimNumberElement) {
+          claimNumber = claimNumberElement.textContent.trim();
+          console.log('Found claim number in page:', claimNumber);
+        }
+        
+        // Also check iframes for claim number
+        if (!claimNumber) {
+          try {
+            const frames = document.querySelectorAll('iframe');
+            frames.forEach(frame => {
+              try {
+                const frameDoc = frame.contentDocument || frame.contentWindow.document;
+                const frameClaimElement = frameDoc.querySelector('#claimNumber, .ClaimNbr_Val, [title="Claim Number"]');
+                if (frameClaimElement && !claimNumber) {
+                  claimNumber = frameClaimElement.textContent.trim();
+                  console.log('Found claim number in frame:', claimNumber);
+                }
+              } catch (e) {
+                // Cross-origin iframe, skip
+              }
+            });
+          } catch (e) {
+            console.log('Could not check iframes:', e);
+          }
+        }
         
         // Check iframes for claim info (iVOS loads content in iframes)
         if (!claimId) {
@@ -100,6 +129,7 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log('=== Claim Info Detected ===');
         console.log('URL:', window.location.href);
         console.log('Claim ID:', claimId);
+        console.log('Claim Number:', claimNumber);
         console.log('Claimant ID:', claimantId);
         console.log('Claimant Name:', claimantName);
         console.log('Insurance Type:', insuranceType);
@@ -108,11 +138,20 @@ window.addEventListener('DOMContentLoaded', () => {
           window.adjusterAssistant.trackEvent({
             type: 'claim_detected',
             claimId: claimId || 'unknown',
+            claimNumber: claimNumber,
             claimantId,
             claimantName,
             insuranceType,
             url: window.location.href,
             title: document.title
+          });
+        }
+        
+        // Search for emails related to this claim
+        if (claimNumber && window.adjusterAssistant) {
+          window.adjusterAssistant.trackEvent({
+            type: 'search_claim_emails',
+            claimNumber: claimNumber
           });
         }
       }

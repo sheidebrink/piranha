@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Email Inbox</title>
+  <link rel="stylesheet" href="email-inbox.css">
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-sidebar">
+      <div class="email-header">
+        <h2>📧 Inbox</h2>
+        <button id="refreshBtn" title="Refresh">↻</button>
+      </div>
+      
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search emails..." />
+      </div>
+
+      <div class="folder-list">
+        <div class="folder active" data-folder="inbox">
+          <span class="folder-icon">📥</span>
+          <span class="folder-name">Inbox</span>
+          <span class="folder-count" id="inboxCount">0</span>
+        </div>
+        <div class="folder" data-folder="sentitems">
+          <span class="folder-icon">📤</span>
+          <span class="folder-name">Sent</span>
+        </div>
+        <div class="folder" data-folder="drafts">
+          <span class="folder-icon">📝</span>
+          <span class="folder-name">Drafts</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="email-list">
+      <div class="email-list-header">
+        <span id="folderTitle">Inbox</span>
+        <span id="emailCount">Loading...</span>
+      </div>
+      <div id="emailListContent" class="email-list-content">
+        <div class="loading">Loading emails...</div>
+      </div>
+    </div>
+
+    <div class="email-detail">
+      <div id="emailDetailContent" class="email-detail-content">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div>Select an email to read</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="email-inbox.js"></script>
+</body>
+</html>

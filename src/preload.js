@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTabs: () => ipcRenderer.invoke('get-tabs'),
   onTabsUpdated: (callback) => ipcRenderer.on('tabs-updated', (event, tabs) => callback(tabs)),
   hideBrowserView: () => ipcRenderer.invoke('hide-browser-view'),
-  showBrowserView: () => ipcRenderer.invoke('show-browser-view')
+  showBrowserView: () => ipcRenderer.invoke('show-browser-view'),
+  openEmailTab: () => ipcRenderer.invoke('open-email-tab')
 });
