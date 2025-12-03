@@ -1,14 +1,30 @@
-# Adjuster Assistant
+# 🐟 Piranha - Claims Assistant
 
-Electron-based browser wrapper for 3rd party claims management SaaS with navigation assistance, validation, and performance tracking.
+**Stay on top of what you're asked to do.**
+
+Piranha is an Electron-based claims management assistant that wraps your 3rd party SaaS with powerful features: email integration, performance tracking, multi-tab workflow, and intelligent notifications.
 
 ## Features
 
-- **Embedded Browser**: Loads 3rd party SaaS app in a controlled BrowserView
-- **Performance Tracking**: Captures metrics on claim processing time, tab usage, and field completion
-- **Validation Overlay**: Real-time validation for required fields based on claim type
-- **Session Analytics**: Track adjuster performance and generate reports
-- **SQLite Database**: Local storage for all metrics and events
+### 🐟 Core Capabilities
+- **Multi-Tab Workflow**: Work on multiple claims simultaneously with browser-like tabs
+- **Email Integration**: Built-in O365 inbox with claim-email correlation
+- **Smart Notifications**: Automatic alerts when emails match open claims
+- **No More Popups**: Intercepts new windows and opens them as organized tabs
+- **Session Persistence**: Stay logged in across app restarts
+
+### 📊 Performance & Tracking
+- **Performance Metrics**: Track time per claim, tab usage, and completion rates
+- **SQLite Database**: Local storage for all metrics and analytics
+- **Session Analytics**: Generate reports on adjuster productivity
+- **Claim Detection**: Automatically identifies and tracks claim information
+
+### 📧 Email Features
+- **Integrated Inbox**: View O365 emails without leaving the app
+- **Claim Correlation**: Automatic search for emails related to current claim
+- **Reply Indicators**: Visual cues for emails needing responses
+- **Smart Filtering**: Filter by unreplied emails, folders, and search
+- **Desktop Notifications**: Get notified of claim-related emails
 
 ## Installation
 

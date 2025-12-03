@@ -12,6 +12,7 @@ let metricsTracker;
 let db;
 let emailService;
 let emailTabId = null; // Special tab for email inbox
+let splashWindow = null;
 
 // Window bounds management
 function loadWindowBounds() {
@@ -56,6 +57,8 @@ function createWindow() {
         height: windowBounds.height,
         x: windowBounds.x,
         y: windowBounds.y,
+        title: 'Piranha - Claims Assistant',
+        show: false, // Don't show until splash is done
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -89,7 +92,42 @@ function createWindow() {
     mainWindow.on('close', saveWindowBounds);
 }
 
+function createSplashScreen() {
+    splashWindow = new BrowserWindow({
+        width: 500,
+        height: 400,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        resizable: false,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+
+    splashWindow.loadFile('src/renderer/splash.html');
+    splashWindow.center();
+}
+
+function closeSplashScreen() {
+    if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+    }
+}
+
 app.whenReady().then(async () => {
+    console.log(`
+    ╔═══════════════════════════════════════╗
+    ║   🐟 PIRANHA - Claims Assistant 🐟   ║
+    ║   Stay on top of what you do.        ║
+    ╚═══════════════════════════════════════╝
+    `);
+
+    // Show splash screen
+    createSplashScreen();
+
     db = new Database();
     metricsTracker = new MetricsTracker(db);
 
@@ -98,6 +136,12 @@ app.whenReady().then(async () => {
     await emailService.initialize();
 
     createWindow();
+
+    // Close splash screen after main window is ready
+    setTimeout(() => {
+        closeSplashScreen();
+        mainWindow.show();
+    }, 2000);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

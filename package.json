@@ -1,8 +1,9 @@
 {
-  "name": "adjuster-assistant",
+  "name": "piranha",
   "version": "1.0.0",
-  "description": "Electron app to assist adjusters with 3rd party SaaS navigation and tracking",
+  "description": "Piranha - Stay on top of claims. Electron app for adjusters with email integration, claim tracking, and performance metrics.",
   "main": "src/main.js",
+  "productName": "Piranha",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev"
