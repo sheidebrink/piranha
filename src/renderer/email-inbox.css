@@ -104,6 +104,34 @@ body {
   font-weight: 600;
 }
 
+.filter-section {
+  padding: 12px 16px;
+  border-top: 1px solid #34495e;
+  margin-top: 8px;
+}
+
+.filter-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #95a5a6;
+  margin-bottom: 8px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.filter-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
 .email-list {
   width: 350px;
   background: white;
@@ -152,6 +180,16 @@ body {
   font-weight: 600;
 }
 
+.email-item.needs-reply {
+  border-left: 4px solid #f39c12;
+  background: #fff9e6;
+}
+
+.email-item.needs-reply.unread {
+  background: #ffe8b3;
+  font-weight: 600;
+}
+
 .email-item.selected {
   background: #d5e8f3;
 }
@@ -160,6 +198,14 @@ body {
   font-size: 14px;
   color: #2c3e50;
   margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reply-indicator {
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .email-subject {

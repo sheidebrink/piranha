@@ -11,6 +11,10 @@ const searchInput = document.getElementById('searchInput');
 const refreshBtn = document.getElementById('refreshBtn');
 const folderTitle = document.getElementById('folderTitle');
 const emailCount = document.getElementById('emailCount');
+const filterNeedsReply = document.getElementById('filterNeedsReply');
+
+let allEmails = [];
+let filterActive = false;
 
 // Load emails on startup
 loadEmails();
@@ -20,6 +24,21 @@ ipcRenderer.on('search-emails-for-claim', (event, claimNumber) => {
   console.log('Searching for claim:', claimNumber);
   searchInput.value = claimNumber;
   searchEmails(claimNumber);
+});
+
+// Filter toggle
+filterNeedsReply.addEventListener('change', (e) => {
+  filterActive = e.target.checked;
+  if (filterActive) {
+    const needsReplyEmails = allEmails.filter(email => 
+      !email.isReplied && email.from.emailAddress.address !== USER_EMAIL
+    );
+    renderEmailList(needsReplyEmails);
+    updateEmailCount(needsReplyEmails.length);
+  } else {
+    renderEmailList(allEmails);
+    updateEmailCount(allEmails.length);
+  }
 });
 
 // Refresh button
@@ -61,8 +80,18 @@ async function loadEmails() {
       top: 50
     });
 
-    renderEmailList(emails);
-    updateEmailCount(emails.length);
+    allEmails = emails;
+    
+    if (filterActive) {
+      const needsReplyEmails = emails.filter(email => 
+        !email.isReplied && email.from.emailAddress.address !== USER_EMAIL
+      );
+      renderEmailList(needsReplyEmails);
+      updateEmailCount(needsReplyEmails.length);
+    } else {
+      renderEmailList(emails);
+      updateEmailCount(emails.length);
+    }
   } catch (error) {
     console.error('Error loading emails:', error);
     emailListContent.innerHTML = '<div class="error">Failed to load emails. Please try again.</div>';
@@ -92,14 +121,26 @@ function renderEmailList(emails) {
     return;
   }
 
-  emailListContent.innerHTML = emails.map(email => `
-    <div class="email-item ${email.isRead ? '' : 'unread'}" data-id="${email.id}">
-      <div class="email-from">${email.from.emailAddress.name || email.from.emailAddress.address}</div>
-      <div class="email-subject">${email.subject || '(No subject)'}</div>
-      <div class="email-preview">${email.bodyPreview || ''}</div>
-      <div class="email-time">${formatDate(email.receivedDateTime)}</div>
-    </div>
-  `).join('');
+  emailListContent.innerHTML = emails.map(email => {
+    const needsReply = !email.isReplied && email.from.emailAddress.address !== USER_EMAIL;
+    const classes = [
+      'email-item',
+      email.isRead ? '' : 'unread',
+      needsReply ? 'needs-reply' : ''
+    ].filter(Boolean).join(' ');
+    
+    return `
+      <div class="${classes}" data-id="${email.id}">
+        <div class="email-from">
+          ${email.from.emailAddress.name || email.from.emailAddress.address}
+          ${needsReply ? '<span class="reply-indicator" title="Needs Reply">⚠️</span>' : ''}
+        </div>
+        <div class="email-subject">${email.subject || '(No subject)'}</div>
+        <div class="email-preview">${email.bodyPreview || ''}</div>
+        <div class="email-time">${formatDate(email.receivedDateTime)}</div>
+      </div>
+    `;
+  }).join('');
 
   // Add click handlers
   document.querySelectorAll('.email-item').forEach(item => {

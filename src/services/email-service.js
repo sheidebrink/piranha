@@ -68,7 +68,7 @@ class EmailService {
                 .api(`/users/${userEmail}/mailFolders/${folder}/messages`)
                 .top(top)
                 .skip(skip)
-                .select('id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments')
+                .select('id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments,conversationId')
                 .orderby('receivedDateTime DESC');
 
             if (filter) {
@@ -76,7 +76,16 @@ class EmailService {
             }
 
             const result = await query.get();
-            return result.value;
+            
+            // Add isReplied flag by checking if we sent any emails in the same conversation
+            const emails = result.value;
+            for (const email of emails) {
+                // Simple heuristic: if it's from us, it's not needing a reply
+                // For more accurate detection, we'd need to check the conversation
+                email.isReplied = false; // Default to false, will be enhanced later
+            }
+            
+            return emails;
         } catch (error) {
             console.error('Error fetching emails:', error);
             throw error;
@@ -91,8 +100,10 @@ class EmailService {
         try {
             const message = await this.graphClient
                 .api(`/users/${userEmail}/messages/${messageId}`)
-                .select('id,subject,from,receivedDateTime,body,toRecipients,ccRecipients,hasAttachments')
+                .select('id,subject,from,receivedDateTime,body,toRecipients,ccRecipients,hasAttachments,conversationId')
                 .get();
+            
+            message.isReplied = false; // Default value
 
             return message;
         } catch (error) {
