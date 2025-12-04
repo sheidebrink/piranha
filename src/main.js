@@ -1,8 +1,14 @@
 const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const MetricsTracker = require('./metrics/tracker');
 const Database = require('./database/db');
 const EmailService = require('./services/email-service');
+
+// Load settings
+const settingsPath = path.join(__dirname, '../config/settings.json');
+const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+const currentEnv = settings.environments[settings.environment];
 
 let mainWindow;
 let topLevelViews = new Map(); // Map of top-level tabId -> BrowserView (Email, Web Container)
@@ -218,7 +224,7 @@ function createWebContainerTab() {
     // Create initial nested web tab after container loads
     browserView.webContents.on('did-finish-load', () => {
         setTimeout(() => {
-            createWebTab('https://test-cbcs.ventivclient.com/ivos/login.jsp', 'Claims App');
+            createWebTab(currentEnv.url, 'Claims App', true, false); // Not closeable
         }, 100);
     });
 
@@ -259,7 +265,7 @@ function createMetricsTab() {
 }
 
 // Nested web tab management (inside Web Container)
-function createWebTab(url = null, title = 'New Tab', switchTo = true) {
+function createWebTab(url = null, title = 'New Tab', switchTo = true, closable = true) {
     const tabId = ++webTabCounter;
 
     const { session } = require('electron');
@@ -352,7 +358,7 @@ function createWebTab(url = null, title = 'New Tab', switchTo = true) {
         view: browserView,
         url: url || '',
         title: title,
-        closable: true
+        closable: closable
     });
 
     if (url) {
@@ -473,7 +479,7 @@ function closeWebTab(tabId) {
             switchToWebTab(remainingTabs[0]);
         } else {
             activeWebTabId = null;
-            createWebTab('https://test-cbcs.ventivclient.com/ivos/login.jsp');
+            createWebTab(currentEnv.url);
         }
     }
 
@@ -504,12 +510,13 @@ function updateBrowserViewBounds() {
     if (activeTopLevelTabId !== null) {
         const topLevelData = topLevelViews.get(activeTopLevelTabId);
         if (topLevelData) {
-            const topOffset = 60; // Just the control panel (tabs are now inside it)
+            const topOffset = 60; // Control panel (tabs are now inside it)
+            const bottomOffset = 24; // Status bar
             topLevelData.view.setBounds({
                 x: 0,
                 y: topOffset,
                 width: bounds.width,
-                height: bounds.height - topOffset
+                height: bounds.height - topOffset - bottomOffset
             });
         }
     }
@@ -521,11 +528,12 @@ function updateBrowserViewBounds() {
             // Web tabs appear below: control panel (60px) + web tab bar (45px)
             // Toolbar and breadcrumbs are hidden by default, so we don't count them
             const topOffset = 60 + 45; // Control panel + web tab bar
+            const bottomOffset = 24; // Status bar
             webTabData.view.setBounds({
                 x: 0,
                 y: topOffset,
                 width: bounds.width,
-                height: bounds.height - topOffset
+                height: bounds.height - topOffset - bottomOffset
             });
         }
     }
@@ -575,6 +583,10 @@ ipcMain.handle('get-tabs', async () => {
         active: id === activeTopLevelTabId,
         closable: data.closable !== false
     }));
+});
+
+ipcMain.handle('get-settings', async () => {
+    return settings;
 });
 
 // IPC handlers for nested web tabs

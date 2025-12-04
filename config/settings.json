@@ -1,0 +1,16 @@
+{
+  "environment": "QA",
+  "version": "1.0.0",
+  "environments": {
+    "QA": {
+      "name": "QA",
+      "url": "https://test-cbcs.ventivclient.com/ivos/login.jsp",
+      "color": "#f39c12"
+    },
+    "PROD": {
+      "name": "Production",
+      "url": "https://cbcs.ventivclient.com/ivos/login.jsp",
+      "color": "#27ae60"
+    }
+  }
+}

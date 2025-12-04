@@ -29,5 +29,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hideBrowserView: () => ipcRenderer.invoke('hide-browser-view'),
   showBrowserView: () => ipcRenderer.invoke('show-browser-view'),
   setZoom: (zoomLevel) => ipcRenderer.invoke('set-zoom', zoomLevel),
-  testNotification: () => ipcRenderer.invoke('test-notification')
+  testNotification: () => ipcRenderer.invoke('test-notification'),
+  getSettings: () => ipcRenderer.invoke('get-settings')
 });

@@ -1,12 +1,9 @@
 const toggleToolbarBtn = document.getElementById('toggleToolbarBtn');
 const webToolbar = document.getElementById('webToolbar');
-const urlInput = document.getElementById('urlInput');
-const loadBtn = document.getElementById('loadBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 const zoomLevel = document.getElementById('zoomLevel');
-const breadcrumbs = document.getElementById('breadcrumbs');
 const webTabs = document.getElementById('webTabs');
 const newWebTabBtn = document.getElementById('newWebTabBtn');
 const currentClaim = document.getElementById('currentClaim');
@@ -18,12 +15,10 @@ toggleToolbarBtn.addEventListener('click', () => {
   toolbarVisible = !toolbarVisible;
   if (toolbarVisible) {
     webToolbar.classList.remove('hidden');
-    breadcrumbs.classList.remove('hidden');
     toggleToolbarBtn.textContent = '✕';
     toggleToolbarBtn.title = 'Hide Toolbar';
   } else {
     webToolbar.classList.add('hidden');
-    breadcrumbs.classList.add('hidden');
     toggleToolbarBtn.textContent = '⚙️';
     toggleToolbarBtn.title = 'Show Toolbar';
   }
@@ -65,28 +60,20 @@ function renderWebTabs(tabList) {
   });
 }
 
+// Get settings from main process
+let appSettings = null;
+window.electronAPI.getSettings().then(settings => {
+  appSettings = settings;
+});
+
 newWebTabBtn.addEventListener('click', () => {
-  window.electronAPI.createWebTab('https://test-cbcs.ventivclient.com/ivos/login.jsp');
-});
-
-// Load URL
-loadBtn.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (url) {
-    await window.electronAPI.loadUrl(url);
+  if (appSettings) {
+    const env = appSettings.environments[appSettings.environment];
+    window.electronAPI.createWebTab(env.url);
   }
 });
 
-urlInput.addEventListener('keypress', async (e) => {
-  if (e.key === 'Enter') {
-    const url = urlInput.value.trim();
-    if (url) {
-      await window.electronAPI.loadUrl(url);
-    }
-  }
-});
-
-// Navigation history removed - back/forward buttons removed
+// URL input removed - using settings file for environment URLs
 
 function extractLabel(url) {
   try {

@@ -1,6 +1,16 @@
 const tabs = document.getElementById('tabs');
 const sessionStats = document.getElementById('sessionStats');
 const toastContainer = document.getElementById('toastContainer');
+const envIndicator = document.getElementById('envIndicator');
+const versionIndicator = document.getElementById('versionIndicator');
+
+// Load and display settings
+window.electronAPI.getSettings().then(settings => {
+  const env = settings.environments[settings.environment];
+  envIndicator.textContent = `${env.name} Environment`;
+  envIndicator.style.color = env.color;
+  versionIndicator.textContent = `v${settings.version}`;
+});
 
 // Top-level tab management (Email and Web Container)
 window.electronAPI.onTabsUpdated((tabList) => {
