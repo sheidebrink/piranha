@@ -76,10 +76,20 @@ window.addEventListener('DOMContentLoaded', () => {
         let claimNumber = null;
         
         // Look for claim number in the page (WC2000090249 format)
-        const claimNumberElement = document.querySelector('#claimNumber, .ClaimNbr_Val, [title="Claim Number"]');
+        const claimNumberElement = document.querySelector('#claimNumber, .ClaimNbr_Val, [title="Claim Number"], .claim-number, [class*="claim"]');
         if (claimNumberElement) {
           claimNumber = claimNumberElement.textContent.trim();
           console.log('Found claim number in page:', claimNumber);
+        }
+        
+        // If not found, try searching all text for claim number pattern
+        if (!claimNumber) {
+          const bodyText = document.body.innerText;
+          const claimMatch = bodyText.match(/\b(WC|GL|AL|PL)\d{10}\b/i);
+          if (claimMatch) {
+            claimNumber = claimMatch[0];
+            console.log('Found claim number via pattern match:', claimNumber);
+          }
         }
         
         // Also check iframes for claim number
@@ -133,8 +143,10 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log('Claimant ID:', claimantId);
         console.log('Claimant Name:', claimantName);
         console.log('Insurance Type:', insuranceType);
+        console.log('adjusterAssistant available?', !!window.adjusterAssistant);
         
         if ((claimId || claimantName) && window.adjusterAssistant) {
+          console.log('Sending claim_detected event...');
           window.adjusterAssistant.trackEvent({
             type: 'claim_detected',
             claimId: claimId || 'unknown',
@@ -149,15 +161,24 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Search for emails related to this claim
         if (claimNumber && window.adjusterAssistant) {
+          console.log('Sending search_claim_emails event for:', claimNumber);
           window.adjusterAssistant.trackEvent({
             type: 'search_claim_emails',
             claimNumber: claimNumber
           });
+        } else if (claimNumber) {
+          console.log('Claim number found but adjusterAssistant not available');
+        } else {
+          console.log('No claim number found to search');
         }
       }
       
       // Run detection after page loads
       setTimeout(detectClaimInfo, 1000);
+      
+      // Also run detection when DOM changes (for dynamic content)
+      setTimeout(detectClaimInfo, 3000);
+      setTimeout(detectClaimInfo, 5000);
       
       // Helper function to inspect frames (available in console)
       window.inspectFrames = function() {

@@ -5,13 +5,17 @@ const Database = require('./database/db');
 const EmailService = require('./services/email-service');
 
 let mainWindow;
-let browserViews = new Map(); // Map of tabId -> BrowserView
-let activeTabId = null;
-let tabCounter = 0;
+let topLevelViews = new Map(); // Map of top-level tabId -> BrowserView (Email, Web Container)
+let webTabs = new Map(); // Map of nested web tabId -> BrowserView (Claims tabs)
+let activeTopLevelTabId = null;
+let activeWebTabId = null;
+let topLevelTabCounter = 0;
+let webTabCounter = 0;
 let metricsTracker;
 let db;
 let emailService;
-let emailTabId = null; // Special tab for email inbox
+let emailTabId = null; // Top-level email tab
+let webContainerTabId = null; // Top-level web container tab
 let splashWindow = null;
 
 // Window bounds management
@@ -69,16 +73,15 @@ function createWindow() {
     // Load the control panel UI
     mainWindow.loadFile('src/renderer/index.html');
 
-    // Don't open DevTools for main window - it gets covered by BrowserView
-    // mainWindow.webContents.openDevTools();
+    // Wait for main window to be ready before creating tabs
+    mainWindow.webContents.on('did-finish-load', () => {
+        // Create top-level tabs
+        createEmailTab(); // Email tab (top-level)
+        createWebContainerTab(); // Web container tab (top-level, contains nested tabs)
 
-    // Create email inbox tab (permanent, unclosable) - this will be active first
-    createEmailTab();
-
-    // Create initial claims tab in background after a short delay
-    setTimeout(() => {
-        createNewTab('https://test-cbcs.ventivclient.com/ivos/login.jsp', 'Claims App', false);
-    }, 500);
+        // Switch to email tab first
+        switchToTopLevelTab(emailTabId);
+    });
 
     mainWindow.on('resize', () => {
         updateBrowserViewBounds();
@@ -93,9 +96,14 @@ function createWindow() {
 }
 
 function createSplashScreen() {
+    // Load saved window bounds to determine which screen to show splash on
+    const windowBounds = loadWindowBounds();
+
     splashWindow = new BrowserWindow({
         width: 500,
         height: 400,
+        x: windowBounds.x,
+        y: windowBounds.y,
         transparent: true,
         frame: false,
         alwaysOnTop: true,
@@ -107,7 +115,17 @@ function createSplashScreen() {
     });
 
     splashWindow.loadFile('src/renderer/splash.html');
-    splashWindow.center();
+
+    // Center on the screen where the main window will appear
+    if (windowBounds.x !== undefined && windowBounds.y !== undefined) {
+        const splashBounds = splashWindow.getBounds();
+        splashWindow.setPosition(
+            windowBounds.x + Math.floor((windowBounds.width - splashBounds.width) / 2),
+            windowBounds.y + Math.floor((windowBounds.height - splashBounds.height) / 2)
+        );
+    } else {
+        splashWindow.center();
+    }
 }
 
 function closeSplashScreen() {
@@ -156,45 +174,72 @@ app.on('window-all-closed', () => {
     }
 });
 
-// Helper functions for tab management
+// Helper functions for top-level tab management
 function createEmailTab() {
-    const tabId = ++tabCounter;
+    const tabId = ++topLevelTabCounter;
     emailTabId = tabId;
 
-    // Use default session for email tab (no preload script)
     const browserView = new BrowserView({
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
-            // No preload script - this is our own HTML file
         }
     });
 
     browserView.webContents.loadFile('src/renderer/email-inbox.html');
 
-    browserViews.set(tabId, {
+    topLevelViews.set(tabId, {
         view: browserView,
         url: 'email://inbox',
         title: '📧 Email',
-        isEmail: true,
         closable: false
     });
 
-    switchToTab(tabId);
-    sendTabsUpdate();
-
+    sendTopLevelTabsUpdate();
     return tabId;
 }
 
-function createNewTab(url = null, title = 'New Tab', switchTo = true) {
-    const tabId = ++tabCounter;
+function createWebContainerTab() {
+    const tabId = ++topLevelTabCounter;
+    webContainerTabId = tabId;
+
+    const browserView = new BrowserView({
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false
+        }
+    });
+
+    browserView.webContents.loadFile('src/renderer/web-container.html');
+
+    // Create initial nested web tab after container loads
+    browserView.webContents.on('did-finish-load', () => {
+        setTimeout(() => {
+            createWebTab('https://test-cbcs.ventivclient.com/ivos/login.jsp', 'Claims App');
+        }, 100);
+    });
+
+    topLevelViews.set(tabId, {
+        view: browserView,
+        url: 'web://container',
+        title: '🌐 Web',
+        closable: false
+    });
+
+    sendTopLevelTabsUpdate();
+    return tabId;
+}
+
+// Nested web tab management (inside Web Container)
+function createWebTab(url = null, title = 'New Tab', switchTo = true) {
+    const tabId = ++webTabCounter;
 
     const { session } = require('electron');
     const persistentSession = session.fromPartition('persist:ivos', {
         cache: true
     });
 
-    // Configure session to handle SSO properly
     persistentSession.webRequest.onBeforeSendHeaders((details, callback) => {
         callback({ requestHeaders: details.requestHeaders });
     });
@@ -207,16 +252,40 @@ function createNewTab(url = null, title = 'New Tab', switchTo = true) {
             session: persistentSession,
             partition: 'persist:ivos',
             webSecurity: true,
-            allowRunningInsecureContent: false
+            allowRunningInsecureContent: false,
+            enablePreferredSizeMode: false
         }
     });
 
-    // Intercept new window requests - open in new tab
-    browserView.webContents.setWindowOpenHandler(({ url, frameName, features }) => {
-        console.log('=== New window requested, opening in new tab ===');
+    // Inject CSS to ensure scrollbars are visible
+    browserView.webContents.on('did-finish-load', () => {
+        browserView.webContents.insertCSS(`
+            html, body {
+                overflow: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            ::-webkit-scrollbar {
+                width: 12px;
+                height: 12px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #f1f1f1;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 6px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #555;
+            }
+        `);
+    });
+
+    // Intercept new window requests
+    browserView.webContents.setWindowOpenHandler(({ url }) => {
+        console.log('=== New window requested, opening in new web tab ===');
         console.log('URL:', url);
 
-        // Resolve relative URLs
         let fullUrl = url;
         if (!url.startsWith('http')) {
             const currentUrl = browserView.webContents.getURL();
@@ -227,31 +296,27 @@ function createNewTab(url = null, title = 'New Tab', switchTo = true) {
             }
         }
 
-        // Create new tab for this claim
-        createNewTab(fullUrl, 'Loading...');
-
+        createWebTab(fullUrl, 'Loading...');
         return { action: 'deny' };
     });
 
-    // Listen for navigation
     browserView.webContents.on('did-navigate', (event, navUrl) => {
-        console.log('Tab', tabId, 'navigated to:', navUrl);
+        console.log('Web tab', tabId, 'navigated to:', navUrl);
         metricsTracker.trackNavigation(navUrl);
-        updateTabTitle(tabId);
+        updateWebTabTitle(tabId);
     });
 
     browserView.webContents.on('page-title-updated', (event, pageTitle) => {
-        updateTabTitle(tabId, pageTitle);
+        updateWebTabTitle(tabId, pageTitle);
     });
 
-    // Open DevTools for each new tab
-    browserView.webContents.openDevTools();
+    // Don't open DevTools - it covers the content
+    // browserView.webContents.openDevTools();
 
-    browserViews.set(tabId, {
+    webTabs.set(tabId, {
         view: browserView,
         url: url || '',
         title: title,
-        isEmail: false,
         closable: true
     });
 
@@ -259,82 +324,109 @@ function createNewTab(url = null, title = 'New Tab', switchTo = true) {
         browserView.webContents.loadURL(url);
     }
 
-    // Only switch if requested AND if we're not creating a background tab
     if (switchTo) {
-        switchToTab(tabId);
-    } else {
-        // Just add to the map, don't switch
-        console.log(`Created tab ${tabId} in background: ${title}`);
+        switchToWebTab(tabId);
     }
-    sendTabsUpdate();
 
+    sendWebTabsUpdate();
     return tabId;
 }
 
-function switchToTab(tabId) {
-    const tabData = browserViews.get(tabId);
+// Top-level tab switching
+function switchToTopLevelTab(tabId) {
+    const tabData = topLevelViews.get(tabId);
     if (!tabData) return;
 
-    console.log(`=== Switching to tab ${tabId}: ${tabData.title} ===`);
+    console.log(`=== Switching to top-level tab ${tabId}: ${tabData.title} ===`);
 
-    // Remove current BrowserView
-    if (activeTabId !== null) {
-        const currentTab = browserViews.get(activeTabId);
+    // Remove current top-level view
+    if (activeTopLevelTabId !== null) {
+        const currentTab = topLevelViews.get(activeTopLevelTabId);
         if (currentTab) {
-            console.log(`Removing current tab ${activeTabId}: ${currentTab.title}`);
             mainWindow.removeBrowserView(currentTab.view);
         }
     }
 
-    // Add new BrowserView
-    console.log(`Adding BrowserView for tab ${tabId}: ${tabData.title}`);
-    mainWindow.setBrowserView(tabData.view);
-    activeTabId = tabId;
-
-    updateBrowserViewBounds();
-    sendTabsUpdate();
-}
-
-function closeTab(tabId) {
-    const tabData = browserViews.get(tabId);
-    if (!tabData) return;
-
-    // Don't allow closing the email tab
-    if (tabData.isEmail || !tabData.closable) {
-        console.log('Cannot close email tab');
-        return;
-    }
-
-    // Destroy the BrowserView
-    if (activeTabId === tabId) {
-        mainWindow.removeBrowserView(tabData.view);
-    }
-    tabData.view.webContents.destroy();
-    browserViews.delete(tabId);
-
-    // Switch to another tab if this was active
-    if (activeTabId === tabId) {
-        const remainingTabs = Array.from(browserViews.keys());
-        if (remainingTabs.length > 0) {
-            switchToTab(remainingTabs[0]);
-        } else {
-            activeTabId = null;
-            // Create a new tab if all are closed
-            createNewTab('https://test-cbcs.ventivclient.com/ivos/login.jsp');
+    // If switching to web container, also show the active web tab
+    if (tabId === webContainerTabId && activeWebTabId !== null) {
+        const webTabData = webTabs.get(activeWebTabId);
+        if (webTabData) {
+            mainWindow.removeBrowserView(webTabData.view);
         }
     }
 
-    sendTabsUpdate();
+    // Add new top-level view
+    mainWindow.setBrowserView(tabData.view);
+    activeTopLevelTabId = tabId;
+
+    // If this is the web container, also show the active web tab
+    if (tabId === webContainerTabId && activeWebTabId !== null) {
+        const webTabData = webTabs.get(activeWebTabId);
+        if (webTabData) {
+            mainWindow.addBrowserView(webTabData.view);
+        }
+    }
+
+    updateBrowserViewBounds();
+    sendTopLevelTabsUpdate();
 }
 
-function updateTabTitle(tabId, title = null) {
-    const tabData = browserViews.get(tabId);
+// Nested web tab switching
+function switchToWebTab(tabId) {
+    const tabData = webTabs.get(tabId);
+    if (!tabData) return;
+
+    console.log(`=== Switching to web tab ${tabId}: ${tabData.title} ===`);
+
+    // Remove current web tab view
+    if (activeWebTabId !== null) {
+        const currentTab = webTabs.get(activeWebTabId);
+        if (currentTab) {
+            mainWindow.removeBrowserView(currentTab.view);
+        }
+    }
+
+    // Add new web tab view (only if web container is active)
+    if (activeTopLevelTabId === webContainerTabId) {
+        mainWindow.addBrowserView(tabData.view);
+    }
+
+    activeWebTabId = tabId;
+    updateBrowserViewBounds();
+    sendWebTabsUpdate();
+}
+
+function closeWebTab(tabId) {
+    const tabData = webTabs.get(tabId);
+    if (!tabData || !tabData.closable) return;
+
+    if (activeWebTabId === tabId) {
+        mainWindow.removeBrowserView(tabData.view);
+    }
+
+    tabData.view.webContents.destroy();
+    webTabs.delete(tabId);
+
+    if (activeWebTabId === tabId) {
+        const remainingTabs = Array.from(webTabs.keys());
+        if (remainingTabs.length > 0) {
+            switchToWebTab(remainingTabs[0]);
+        } else {
+            activeWebTabId = null;
+            createWebTab('https://test-cbcs.ventivclient.com/ivos/login.jsp');
+        }
+    }
+
+    sendWebTabsUpdate();
+}
+
+function updateWebTabTitle(tabId, title = null) {
+    const tabData = webTabs.get(tabId);
     if (!tabData) return;
 
     if (title) {
         tabData.title = title;
     } else {
-        // Get title from webContents
         const pageTitle = tabData.view.webContents.getTitle();
         if (pageTitle) {
             tabData.title = pageTitle;
@@ -342,41 +434,92 @@ function updateTabTitle(tabId, title = null) {
     }
 
     tabData.url = tabData.view.webContents.getURL();
-    sendTabsUpdate();
+    sendWebTabsUpdate();
 }
 
 function updateBrowserViewBounds() {
-    if (activeTabId === null) return;
-
-    const tabData = browserViews.get(activeTabId);
-    if (!tabData) return;
-
-    const topOffset = 130; // 60px controls + 35px breadcrumbs + 35px tabs
     const bounds = mainWindow.getContentBounds();
-    tabData.view.setBounds({
-        x: 0,
-        y: topOffset,
-        width: bounds.width,
-        height: bounds.height - topOffset
-    });
+
+    // Top-level tab bounds (Email or Web Container)
+    if (activeTopLevelTabId !== null) {
+        const topLevelData = topLevelViews.get(activeTopLevelTabId);
+        if (topLevelData) {
+            const topOffset = 100; // 60px control panel + 40px tabs
+            topLevelData.view.setBounds({
+                x: 0,
+                y: topOffset,
+                width: bounds.width,
+                height: bounds.height - topOffset
+            });
+        }
+    }
+
+    // Nested web tab bounds (only if web container is active)
+    if (activeTopLevelTabId === webContainerTabId && activeWebTabId !== null) {
+        const webTabData = webTabs.get(activeWebTabId);
+        if (webTabData) {
+            // Web tabs appear below the web container's toolbar
+            const topOffset = 100 + 180; // Main tabs + web container toolbar + breadcrumbs + web tabs
+            webTabData.view.setBounds({
+                x: 0,
+                y: topOffset,
+                width: bounds.width,
+                height: bounds.height - topOffset
+            });
+        }
+    }
 }
 
-function sendTabsUpdate() {
-    const tabs = Array.from(browserViews.entries()).map(([id, data]) => ({
+function sendTopLevelTabsUpdate() {
+    const tabs = Array.from(topLevelViews.entries()).map(([id, data]) => ({
         id,
-        title: data.title || 'New Tab',
+        title: data.title || 'Tab',
         url: data.url,
-        active: id === activeTabId,
+        active: id === activeTopLevelTabId,
         closable: data.closable !== false
     }));
 
+    console.log('Sending top-level tabs update:', tabs);
     mainWindow.webContents.send('tabs-updated', tabs);
 }
 
-// IPC handlers
+function sendWebTabsUpdate() {
+    const tabs = Array.from(webTabs.entries()).map(([id, data]) => ({
+        id,
+        title: data.title || 'New Tab',
+        url: data.url,
+        active: id === activeWebTabId,
+        closable: data.closable !== false
+    }));
+
+    // Send to web container
+    if (webContainerTabId !== null) {
+        const webContainerData = topLevelViews.get(webContainerTabId);
+        if (webContainerData) {
+            webContainerData.view.webContents.send('web-tabs-updated', tabs);
+        }
+    }
+}
+
+// IPC handlers for top-level tabs
+ipcMain.handle('switch-tab', async (event, tabId) => {
+    switchToTopLevelTab(tabId);
+});
+
+ipcMain.handle('get-tabs', async () => {
+    return Array.from(topLevelViews.entries()).map(([id, data]) => ({
+        id,
+        title: data.title || 'Tab',
+        url: data.url,
+        active: id === activeTopLevelTabId,
+        closable: data.closable !== false
+    }));
+});
+
+// IPC handlers for nested web tabs
 ipcMain.handle('load-url', async (event, url) => {
-    if (activeTabId !== null) {
-        const tabData = browserViews.get(activeTabId);
+    if (activeWebTabId !== null) {
+        const tabData = webTabs.get(activeWebTabId);
         if (tabData) {
             tabData.view.webContents.loadURL(url);
             metricsTracker.trackNavigation(url);
@@ -384,24 +527,25 @@ ipcMain.handle('load-url', async (event, url) => {
     }
 });
 
-ipcMain.handle('create-tab', async (event, url) => {
-    return createNewTab(url);
+ipcMain.handle('create-web-tab', async (event, url) => {
+    return createWebTab(url);
 });
 
-ipcMain.handle('switch-tab', async (event, tabId) => {
-    switchToTab(tabId);
+ipcMain.handle('switch-web-tab', async (event, tabId) => {
+    switchToWebTab(tabId);
 });
 
-ipcMain.handle('close-tab', async (event, tabId) => {
-    closeTab(tabId);
+ipcMain.handle('close-web-tab', async (event, tabId) => {
+    closeWebTab(tabId);
 });
 
-ipcMain.handle('get-tabs', async () => {
-    return Array.from(browserViews.entries()).map(([id, data]) => ({
+ipcMain.handle('get-web-tabs', async () => {
+    return Array.from(webTabs.entries()).map(([id, data]) => ({
         id,
         title: data.title || 'New Tab',
         url: data.url,
-        active: id === activeTabId
+        active: id === activeWebTabId,
+        closable: data.closable !== false
     }));
 });
 
@@ -477,10 +621,28 @@ ipcMain.handle('search-emails', async (event, options) => {
 });
 
 ipcMain.handle('open-email-tab', async () => {
-    // Switch to email tab if it exists
     if (emailTabId !== null) {
-        switchToTab(emailTabId);
+        switchToTopLevelTab(emailTabId);
     }
+});
+
+ipcMain.handle('set-zoom', async (event, zoomLevel) => {
+    if (activeWebTabId !== null) {
+        const tabData = webTabs.get(activeWebTabId);
+        if (tabData) {
+            tabData.view.webContents.setZoomFactor(zoomLevel);
+            console.log(`Set zoom to ${Math.round(zoomLevel * 100)}% for web tab ${activeWebTabId}`);
+        }
+    }
+});
+
+ipcMain.handle('test-notification', async () => {
+    // Send test toast to renderer
+    mainWindow.webContents.send('email-search-result', {
+        claimNumber: 'TEST123',
+        emailCount: 3
+    });
+    console.log('Test toast notification sent');
 });
 
 // Listen for navigation events to detect claim changes
@@ -506,29 +668,11 @@ async function searchClaimEmails(claimNumber) {
         const emailCount = emails ? emails.length : 0;
         console.log(`Found ${emailCount} email(s) for claim ${claimNumber}`);
 
-        // Show notification
-        const { Notification } = require('electron');
-        const notification = new Notification({
-            title: `📧 ${emailCount} Email${emailCount !== 1 ? 's' : ''} Found`,
-            body: emailCount > 0
-                ? `Found ${emailCount} email${emailCount > 1 ? 's' : ''} related to claim ${claimNumber}.\nClick to view in inbox.`
-                : `No emails found for claim ${claimNumber}.`,
-            icon: null,
-            timeoutType: 'default'
+        // Send toast notification to renderer
+        mainWindow.webContents.send('email-search-result', {
+            claimNumber,
+            emailCount
         });
-
-        if (emailCount > 0) {
-            notification.on('click', () => {
-                // Switch to email tab
-                if (emailTabId !== null) {
-                    switchToTab(emailTabId);
-                    // Send search query to email tab
-                    mainWindow.webContents.send('search-emails-for-claim', claimNumber);
-                }
-            });
-        }
-
-        notification.show();
     } catch (error) {
         console.error('Error searching claim emails:', error);
     }
@@ -552,7 +696,10 @@ ipcMain.handle('track-event', async (event, eventData) => {
 
         // Search for emails related to this claim
         if (eventData.claimNumber) {
+            console.log('Claim number detected, searching emails:', eventData.claimNumber);
             searchClaimEmails(eventData.claimNumber);
+        } else {
+            console.log('No claim number in event data');
         }
     }
 
