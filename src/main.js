@@ -16,6 +16,7 @@ let db;
 let emailService;
 let emailTabId = null; // Top-level email tab
 let webContainerTabId = null; // Top-level web container tab
+let metricsTabId = null; // Top-level metrics tab
 let splashWindow = null;
 
 // Window bounds management
@@ -78,6 +79,7 @@ function createWindow() {
         // Create top-level tabs
         createEmailTab(); // Email tab (top-level)
         createWebContainerTab(); // Web container tab (top-level, contains nested tabs)
+        createMetricsTab(); // Metrics tab (top-level)
 
         // Switch to email tab first
         switchToTopLevelTab(emailTabId);
@@ -231,6 +233,31 @@ function createWebContainerTab() {
     return tabId;
 }
 
+function createMetricsTab() {
+    const tabId = ++topLevelTabCounter;
+    metricsTabId = tabId;
+
+    const browserView = new BrowserView({
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false
+        }
+    });
+
+    browserView.webContents.loadFile('src/renderer/metrics.html');
+
+    topLevelViews.set(tabId, {
+        view: browserView,
+        url: 'metrics://view',
+        title: '📊 Metrics',
+        closable: false
+    });
+
+    sendTopLevelTabsUpdate();
+    return tabId;
+}
+
 // Nested web tab management (inside Web Container)
 function createWebTab(url = null, title = 'New Tab', switchTo = true) {
     const tabId = ++webTabCounter;
@@ -296,7 +323,15 @@ function createWebTab(url = null, title = 'New Tab', switchTo = true) {
             }
         }
 
-        createWebTab(fullUrl, 'Loading...');
+        // Check if a tab with this URL already exists
+        const existingTab = findWebTabByUrl(fullUrl);
+        if (existingTab) {
+            console.log(`Tab already exists for ${fullUrl}, switching to tab ${existingTab}`);
+            switchToWebTab(existingTab);
+        } else {
+            createWebTab(fullUrl, 'Loading...');
+        }
+        
         return { action: 'deny' };
     });
 
@@ -369,6 +404,31 @@ function switchToTopLevelTab(tabId) {
 
     updateBrowserViewBounds();
     sendTopLevelTabsUpdate();
+}
+
+// Helper function to find a web tab by URL
+function findWebTabByUrl(url) {
+    // Normalize URLs for comparison (remove trailing slashes, fragments, etc.)
+    const normalizeUrl = (urlString) => {
+        try {
+            const urlObj = new URL(urlString);
+            // Remove hash and trailing slash for comparison
+            return urlObj.origin + urlObj.pathname.replace(/\/$/, '') + urlObj.search;
+        } catch (e) {
+            return urlString;
+        }
+    };
+
+    const normalizedSearchUrl = normalizeUrl(url);
+
+    for (const [tabId, tabData] of webTabs.entries()) {
+        const tabUrl = tabData.view.webContents.getURL();
+        if (tabUrl && normalizeUrl(tabUrl) === normalizedSearchUrl) {
+            return tabId;
+        }
+    }
+
+    return null;
 }
 
 // Nested web tab switching
@@ -444,7 +504,7 @@ function updateBrowserViewBounds() {
     if (activeTopLevelTabId !== null) {
         const topLevelData = topLevelViews.get(activeTopLevelTabId);
         if (topLevelData) {
-            const topOffset = 100; // 60px control panel + 40px tabs
+            const topOffset = 60; // Just the control panel (tabs are now inside it)
             topLevelData.view.setBounds({
                 x: 0,
                 y: topOffset,
@@ -458,8 +518,9 @@ function updateBrowserViewBounds() {
     if (activeTopLevelTabId === webContainerTabId && activeWebTabId !== null) {
         const webTabData = webTabs.get(activeWebTabId);
         if (webTabData) {
-            // Web tabs appear below the web container's toolbar
-            const topOffset = 100 + 180; // Main tabs + web container toolbar + breadcrumbs + web tabs
+            // Web tabs appear below: control panel (60px) + web tab bar (45px)
+            // Toolbar and breadcrumbs are hidden by default, so we don't count them
+            const topOffset = 60 + 45; // Control panel + web tab bar
             webTabData.view.setBounds({
                 x: 0,
                 y: topOffset,

@@ -2,9 +2,6 @@ const toggleToolbarBtn = document.getElementById('toggleToolbarBtn');
 const webToolbar = document.getElementById('webToolbar');
 const urlInput = document.getElementById('urlInput');
 const loadBtn = document.getElementById('loadBtn');
-const backBtn = document.getElementById('backBtn');
-const forwardBtn = document.getElementById('forwardBtn');
-const metricsBtn = document.getElementById('metricsBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
@@ -13,8 +10,6 @@ const breadcrumbs = document.getElementById('breadcrumbs');
 const webTabs = document.getElementById('webTabs');
 const newWebTabBtn = document.getElementById('newWebTabBtn');
 const currentClaim = document.getElementById('currentClaim');
-const metricsModal = document.getElementById('metricsModal');
-const closeModal = document.querySelector('.close');
 
 let toolbarVisible = false;
 
@@ -79,7 +74,6 @@ loadBtn.addEventListener('click', async () => {
   const url = urlInput.value.trim();
   if (url) {
     await window.electronAPI.loadUrl(url);
-    addToHistory(url);
   }
 });
 
@@ -88,63 +82,11 @@ urlInput.addEventListener('keypress', async (e) => {
     const url = urlInput.value.trim();
     if (url) {
       await window.electronAPI.loadUrl(url);
-      addToHistory(url);
     }
   }
 });
 
-// Navigation
-backBtn.addEventListener('click', () => {
-  if (currentIndex > 0) {
-    currentIndex--;
-    const url = navigationHistory[currentIndex];
-    window.electronAPI.loadUrl(url);
-    updateBreadcrumbs();
-  }
-});
-
-forwardBtn.addEventListener('click', () => {
-  if (currentIndex < navigationHistory.length - 1) {
-    currentIndex++;
-    const url = navigationHistory[currentIndex];
-    window.electronAPI.loadUrl(url);
-    updateBreadcrumbs();
-  }
-});
-
-function addToHistory(url) {
-  if (currentIndex < navigationHistory.length - 1) {
-    navigationHistory = navigationHistory.slice(0, currentIndex + 1);
-  }
-  navigationHistory.push(url);
-  currentIndex = navigationHistory.length - 1;
-  updateBreadcrumbs();
-}
-
-function updateBreadcrumbs() {
-  const maxBreadcrumbs = 5;
-  const start = Math.max(0, currentIndex - maxBreadcrumbs + 1);
-  const visible = navigationHistory.slice(start, currentIndex + 1);
-  
-  breadcrumbs.innerHTML = visible.map((url, idx) => {
-    const actualIdx = start + idx;
-    const isActive = actualIdx === currentIndex;
-    const label = extractLabel(url);
-    return `<span class="breadcrumb ${isActive ? 'active' : ''}" data-index="${actualIdx}">${label}</span>`;
-  }).join(' › ');
-  
-  document.querySelectorAll('.breadcrumb').forEach(el => {
-    el.addEventListener('click', () => {
-      const idx = parseInt(el.dataset.index);
-      currentIndex = idx;
-      window.electronAPI.loadUrl(navigationHistory[idx]);
-      updateBreadcrumbs();
-    });
-  });
-  
-  backBtn.disabled = currentIndex <= 0;
-  forwardBtn.disabled = currentIndex >= navigationHistory.length - 1;
-}
+// Navigation history removed - back/forward buttons removed
 
 function extractLabel(url) {
   try {
@@ -202,57 +144,4 @@ window.electronAPI.onClaimInfoUpdated((claimInfo) => {
   currentClaim.classList.add('visible');
 });
 
-// Metrics modal
-metricsBtn.addEventListener('click', async () => {
-  const summary = await window.electronAPI.getSessionSummary();
-  const metrics = await window.electronAPI.getMetrics({});
-  
-  let html = '<div class="metric-row">';
-  html += '<div class="metric-label">Current Session</div>';
-  html += `<div class="metric-value">${summary.claims_processed || 0} claims processed</div>`;
-  html += `<div>Avg Duration: ${formatDuration(summary.avg_claim_duration)}</div>`;
-  html += `<div>Total Time: ${formatDuration(summary.total_time_seconds)}</div>`;
-  html += '</div>';
-  
-  if (metrics && metrics.length > 0) {
-    html += '<h3 style="margin-top: 20px;">By Claim Type</h3>';
-    metrics.forEach(m => {
-      html += '<div class="metric-row">';
-      html += `<div class="metric-label">${m.claim_type || 'Unknown'}</div>`;
-      html += `<div>Total: ${m.total_claims}</div>`;
-      html += `<div>Avg: ${formatDuration(m.avg_duration)}</div>`;
-      html += `<div>Min: ${formatDuration(m.min_duration)} | Max: ${formatDuration(m.max_duration)}</div>`;
-      html += '</div>';
-    });
-  }
-  
-  document.getElementById('metricsContent').innerHTML = html;
-  metricsModal.classList.remove('hidden');
-  metricsModal.style.display = 'block';
-});
-
-closeModal.addEventListener('click', () => {
-  metricsModal.classList.add('hidden');
-  metricsModal.style.display = 'none';
-});
-
-window.addEventListener('click', (e) => {
-  if (e.target === metricsModal) {
-    metricsModal.classList.add('hidden');
-    metricsModal.style.display = 'none';
-  }
-});
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !metricsModal.classList.contains('hidden')) {
-    metricsModal.classList.add('hidden');
-    metricsModal.style.display = 'none';
-  }
-});
-
-function formatDuration(seconds) {
-  if (!seconds) return '0m';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-}
+// Metrics modal removed - metrics is now a top-level tab

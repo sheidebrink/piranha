@@ -19,7 +19,7 @@ body {
   background: linear-gradient(135deg, #0a4b78 0%, #1a5f8a 100%);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 20px;
   padding: 0 20px;
   z-index: 1000;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -282,50 +282,40 @@ button:disabled:hover {
   }
 }
 
-/* Top-level tabs (Email and Web Container) */
-.tab-bar {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background: #34495e;
-  display: flex;
-  align-items: center;
-  z-index: 998;
-  border-bottom: 2px solid #2c3e50;
-  overflow-x: auto;
-}
-
+/* Top-level tabs (Email and Web Container) - now in control panel */
 .tabs {
   display: flex;
+  gap: 8px;
   flex: 1;
-  padding: 0 8px;
-  gap: 2px;
+  justify-content: center;
 }
 
 .tab {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
-  background: #2c3e50;
-  color: #bdc3c7;
-  border-right: 1px solid #1a252f;
+  padding: 8px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 2px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .tab:hover {
-  background: #34495e;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .tab.active {
-  background: #0a4b78;
+  background: rgba(255, 255, 255, 0.25);
   color: white;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .tab-title {

@@ -11,15 +11,12 @@
   <div id="webToolbar" class="web-toolbar hidden">
     <input type="text" id="urlInput" placeholder="Enter URL" value="https://test-cbcs.ventivclient.com/ivos/login.jsp" />
     <button id="loadBtn">Load</button>
-    <button id="backBtn">← Back</button>
-    <button id="forwardBtn">Forward →</button>
     <div class="zoom-controls">
       <button id="zoomOutBtn" title="Zoom Out (Ctrl+-)">−</button>
       <span id="zoomLevel">100%</span>
       <button id="zoomInBtn" title="Zoom In (Ctrl++)">+</button>
       <button id="zoomResetBtn" title="Reset Zoom (Ctrl+0)">⟲</button>
     </div>
-    <button id="metricsBtn">View Metrics</button>
   </div>
 
   <div id="breadcrumbs" class="breadcrumbs hidden"></div>
@@ -30,15 +27,6 @@
   </div>
 
   <div id="currentClaim" class="current-claim-info"></div>
-
-  <!-- Metrics Modal -->
-  <div id="metricsModal" class="modal hidden">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Performance Metrics</h2>
-      <div id="metricsContent"></div>
-    </div>
-  </div>
 
   <script src="web-container.js"></script>
 </body>

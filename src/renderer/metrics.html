@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Piranha - Metrics</title>
+  <link rel="stylesheet" href="metrics.css">
+</head>
+<body>
+  <div class="metrics-container">
+    <h1>📊 Performance Metrics</h1>
+    
+    <div class="metrics-section">
+      <h2>Current Session</h2>
+      <div id="sessionMetrics" class="metric-cards">
+        <div class="metric-card">
+          <div class="metric-label">Claims Processed</div>
+          <div class="metric-value" id="claimsProcessed">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Average Duration</div>
+          <div class="metric-value" id="avgDuration">0m</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Time</div>
+          <div class="metric-value" id="totalTime">0m</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics-section">
+      <h2>By Claim Type</h2>
+      <div id="claimTypeMetrics" class="metrics-table"></div>
+    </div>
+
+    <button id="refreshBtn" class="refresh-btn">🔄 Refresh</button>
+  </div>
+
+  <script src="metrics.js"></script>
+</body>
+</html>
