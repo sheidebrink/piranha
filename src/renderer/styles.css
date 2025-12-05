@@ -368,3 +368,28 @@ button:disabled:hover {
   color: rgba(255, 255, 255, 0.6);
   font-family: 'Courier New', monospace;
 }
+
+/* API Status Indicator */
+.api-status {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.api-status.connected {
+  color: #27ae60;
+}
+
+.api-status.disconnected {
+  color: #e74c3c;
+}
+
+.api-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

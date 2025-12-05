@@ -4,6 +4,7 @@ const fs = require('fs');
 const MetricsTracker = require('./metrics/tracker');
 const Database = require('./database/db');
 const EmailService = require('./services/email-service');
+const ApiService = require('./services/api-service');
 
 // Load settings
 const settingsPath = path.join(__dirname, '../config/settings.json');
@@ -18,6 +19,8 @@ let activeWebTabId = null;
 let topLevelTabCounter = 0;
 let webTabCounter = 0;
 let metricsTracker;
+let apiService;
+let useApi = false; // Flag to determine if API is available
 let db;
 let emailService;
 let emailTabId = null; // Top-level email tab
@@ -28,12 +31,38 @@ let splashWindow = null;
 // Window bounds management
 function loadWindowBounds() {
     const fs = require('fs');
+    const { screen } = require('electron');
     const boundsPath = path.join(app.getPath('userData'), 'window-bounds.json');
 
     try {
         if (fs.existsSync(boundsPath)) {
             const bounds = JSON.parse(fs.readFileSync(boundsPath, 'utf8'));
             console.log('Loaded window bounds:', bounds);
+            
+            // Check if the window would be visible on any display
+            if (bounds.x !== undefined && bounds.y !== undefined) {
+                const displays = screen.getAllDisplays();
+                const isVisible = displays.some(display => {
+                    const { x, y, width, height } = display.bounds;
+                    // Check if at least part of the window is on this display
+                    return bounds.x < x + width && 
+                           bounds.x + bounds.width > x &&
+                           bounds.y < y + height && 
+                           bounds.y + bounds.height > y;
+                });
+                
+                if (!isVisible) {
+                    console.log('Window would be off-screen, resetting position');
+                    // Keep the size but reset position to primary display
+                    return { 
+                        width: bounds.width, 
+                        height: bounds.height, 
+                        x: undefined, 
+                        y: undefined 
+                    };
+                }
+            }
+            
             return bounds;
         }
     } catch (e) {
@@ -151,29 +180,89 @@ app.whenReady().then(async () => {
     ╚═══════════════════════════════════════╝
     `);
 
-    // Show splash screen
-    createSplashScreen();
+    try {
+        // Show splash screen
+        createSplashScreen();
+        console.log('✓ Splash screen created');
 
-    db = new Database();
-    metricsTracker = new MetricsTracker(db);
+        // Try to connect to API
+        console.log('Checking API connection...');
+        apiService = new ApiService(settings.apiUrl);
+        useApi = await apiService.checkConnection();
+        console.log('✓ API check complete');
 
-    // Initialize email service
-    emailService = new EmailService();
-    await emailService.initialize();
+        if (useApi) {
+            console.log('✅ Using API for metrics tracking');
+            await apiService.startSession('default_user');
+            console.log('✓ API session started');
+        } else {
+            console.log('⚠️  API unavailable, using local database');
+            db = new Database();
+            console.log('✓ Database initialized');
+            metricsTracker = new MetricsTracker(db);
+            console.log('✓ Metrics tracker initialized');
+        }
 
-    createWindow();
+        // Initialize email service
+        console.log('Initializing email service...');
+        emailService = new EmailService();
+        await emailService.initialize();
+        console.log('✓ Email service initialized');
 
-    // Close splash screen after main window is ready
-    setTimeout(() => {
-        closeSplashScreen();
-        mainWindow.show();
-    }, 2000);
+        console.log('Creating main window...');
+        createWindow();
+        console.log('✓ Main window created');
+
+        // Close splash screen after main window is ready
+        setTimeout(() => {
+            console.log('Closing splash screen...');
+            closeSplashScreen();
+            mainWindow.show();
+            console.log('✓ App ready!');
+            
+            // Send API status to main window
+            mainWindow.webContents.send('api-status', { 
+                connected: useApi, 
+                message: useApi ? 'API connected' : 'Metrics API unavailable - using local storage' 
+            });
+        }, 2000);
+        
+        // Fallback: Force close splash after 5 seconds if something goes wrong
+        setTimeout(() => {
+            if (splashWindow && !splashWindow.isDestroyed()) {
+                console.log('⚠️ Force closing splash screen (timeout)');
+                closeSplashScreen();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.show();
+                }
+            }
+        }, 5000);
+    } catch (error) {
+        console.error('❌ Fatal error during initialization:', error);
+        console.error('Stack trace:', error.stack);
+        
+        // Close splash and show error
+        if (splashWindow) {
+            closeSplashScreen();
+        }
+        
+        // Show error dialog
+        const { dialog } = require('electron');
+        dialog.showErrorBox('Startup Error', 
+            `Failed to start Piranha:\n\n${error.message}\n\nCheck the console for details.`);
+        
+        app.quit();
+    }
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
         }
     });
+}).catch(error => {
+    console.error('❌ Unhandled error in app.whenReady():', error);
+    console.error('Stack trace:', error.stack);
+    app.quit();
 });
 
 app.on('window-all-closed', () => {
@@ -756,7 +845,19 @@ ipcMain.handle('track-event', async (event, eventData) => {
     if (eventData.type === 'claim_detected' && eventData.claimId) {
         const claimType = eventData.insuranceType === '1' ? 'liability' :
             eventData.insuranceType === '2' ? 'workers_comp' : 'unknown';
-        metricsTracker.startClaim(eventData.claimId, claimType);
+        
+        // Track with API or local
+        if (useApi && apiService) {
+            await apiService.startClaim({
+                claimId: eventData.claimId,
+                claimNumber: eventData.claimNumber,
+                claimantName: eventData.claimantName,
+                insuranceType: eventData.insuranceType
+            });
+        } else if (metricsTracker) {
+            metricsTracker.startClaim(eventData.claimId, claimType);
+        }
+        
         console.log(`Started tracking claim ${eventData.claimId} (${eventData.claimantName})`);
 
         // Send claim info to renderer
@@ -781,15 +882,30 @@ ipcMain.handle('track-event', async (event, eventData) => {
         searchClaimEmails(eventData.claimNumber);
     }
 
-    metricsTracker.trackEvent(eventData);
+    // Track event with API or local
+    if (useApi && apiService) {
+        await apiService.trackEvent(eventData);
+    } else if (metricsTracker) {
+        metricsTracker.trackEvent(eventData);
+    }
 });
 
 ipcMain.handle('get-metrics', async (event, filters) => {
-    return metricsTracker.getMetrics(filters);
+    if (useApi && apiService) {
+        return await apiService.getMetrics();
+    } else if (metricsTracker) {
+        return metricsTracker.getMetrics(filters);
+    }
+    return [];
 });
 
 ipcMain.handle('get-session-summary', async () => {
-    return metricsTracker.getSessionSummary();
+    if (useApi && apiService) {
+        return await apiService.getSessionSummary();
+    } else if (metricsTracker) {
+        return metricsTracker.getSessionSummary();
+    }
+    return { claims_processed: 0, avg_claim_duration: 0, total_time_seconds: 0 };
 });
 
 ipcMain.handle('clear-session', async () => {

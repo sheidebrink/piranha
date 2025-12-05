@@ -6,7 +6,11 @@
   "productName": "Piranha",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "start:api": "cd api && dotnet run",
+    "start:all": "concurrently \"npm run start:api\" \"npm run start:electron-delayed\"",
+    "start:electron-delayed": "node -e \"setTimeout(() => require('child_process').spawn('npm', ['start'], {stdio: 'inherit', shell: true}), 3000)\"",
+    "start:both": "node start.js"
   },
   "keywords": [
     "electron",
@@ -16,12 +20,14 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^28.0.0",
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "@azure/msal-node": "^3.8.3",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "axios": "^1.13.2",
     "better-sqlite3": "^9.2.0",
     "isomorphic-fetch": "^3.0.0"
   }

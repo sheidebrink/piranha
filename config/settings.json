@@ -1,6 +1,7 @@
 {
   "environment": "QA",
   "version": "1.0.0",
+  "apiUrl": "http://localhost:5000/api",
   "environments": {
     "QA": {
       "name": "QA",

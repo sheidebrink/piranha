@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEmailSearchResult: (callback) => ipcRenderer.on('email-search-result', (event, data) => callback(data)),
   openEmailTab: () => ipcRenderer.invoke('open-email-tab'),
   
+  // API Status
+  onApiStatus: (callback) => ipcRenderer.on('api-status', (event, data) => callback(data)),
+  
   // Utilities
   clearSession: () => ipcRenderer.invoke('clear-session'),
   hideBrowserView: () => ipcRenderer.invoke('hide-browser-view'),
