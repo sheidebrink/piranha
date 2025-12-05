@@ -432,7 +432,9 @@ function createWebTab(url = null, title = 'New Tab', switchTo = true, closable =
 
     browserView.webContents.on('did-navigate', (event, navUrl) => {
         console.log('Web tab', tabId, 'navigated to:', navUrl);
-        metricsTracker.trackNavigation(navUrl);
+        if (metricsTracker) {
+            metricsTracker.trackNavigation(navUrl);
+        }
         updateWebTabTitle(tabId);
     });
 
@@ -684,7 +686,9 @@ ipcMain.handle('load-url', async (event, url) => {
         const tabData = webTabs.get(activeWebTabId);
         if (tabData) {
             tabData.view.webContents.loadURL(url);
-            metricsTracker.trackNavigation(url);
+            if (metricsTracker) {
+                metricsTracker.trackNavigation(url);
+            }
         }
     }
 });
@@ -815,7 +819,7 @@ ipcMain.on('navigation-detected', (event, data) => {
     const claimMatch = url.match(/claim[_-]?id[=\/](\w+)/i) ||
         title.match(/claim[:\s]+(\w+)/i);
 
-    if (claimMatch) {
+    if (claimMatch && metricsTracker) {
         const claimId = claimMatch[1];
         metricsTracker.startClaim(claimId, 'unknown'); // Type can be detected later
     }
