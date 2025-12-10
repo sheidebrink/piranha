@@ -21,19 +21,33 @@ class ApiService {
         }
     }
 
-    async startSession(userId) {
+    async startSession(username) {
         if (!this.isConnected) return null;
 
         try {
             const response = await axios.post(`${this.baseUrl}/metrics/session/start`, 
-                JSON.stringify(userId),
+                JSON.stringify(username),
                 { headers: { 'Content-Type': 'application/json' } }
             );
             this.sessionId = response.data.id;
-            console.log('Session started:', this.sessionId);
+            this.userEmail = response.data.userEmail;
+            this.isAdmin = response.data.isAdmin;
+            console.log('Session started:', this.sessionId, 'Email:', this.userEmail);
             return response.data;
         } catch (error) {
             console.error('Failed to start session:', error.message);
+            return null;
+        }
+    }
+
+    async getUser(username) {
+        if (!this.isConnected) return null;
+
+        try {
+            const response = await axios.get(`${this.baseUrl}/metrics/user/${username}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get user:', error.message);
             return null;
         }
     }

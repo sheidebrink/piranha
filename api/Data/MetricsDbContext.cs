@@ -9,12 +9,38 @@ public class MetricsDbContext : DbContext
     {
     }
 
+    public DbSet<User> Users { get; set; }
     public DbSet<Session> Sessions { get; set; }
     public DbSet<Claim> Claims { get; set; }
     public DbSet<MetricEvent> Events { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Username).HasColumnName("username").IsRequired();
+            entity.Property(e => e.Email).HasColumnName("email").IsRequired();
+            entity.Property(e => e.IsAdmin).HasColumnName("is_admin").HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.LastLoginAt).HasColumnName("last_login_at");
+            
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
+            
+            // Seed data
+            entity.HasData(new User
+            {
+                Id = 1,
+                Username = "sheidebr",
+                Email = "mhuss@cbcsclaims.com",
+                IsAdmin = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        });
+
         modelBuilder.Entity<Session>(entity =>
         {
             entity.ToTable("sessions");

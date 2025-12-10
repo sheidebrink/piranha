@@ -196,8 +196,16 @@ app.whenReady().then(async () => {
             const os = require('os');
             const username = os.userInfo().username;
             console.log('Starting session for user:', username);
-            await apiService.startSession(username);
-            console.log('✓ API session started');
+            const sessionData = await apiService.startSession(username);
+            if (sessionData) {
+                console.log('✓ API session started');
+                console.log('User email:', sessionData.userEmail);
+                console.log('Is admin:', sessionData.isAdmin);
+                
+                // Store user info globally for email searches
+                global.currentUserEmail = sessionData.userEmail;
+                global.currentUserIsAdmin = sessionData.isAdmin;
+            }
         } else {
             console.log('⚠️  API unavailable, using local database');
             db = new Database();
@@ -687,7 +695,9 @@ ipcMain.handle('get-user-info', async () => {
     const os = require('os');
     return {
         username: os.userInfo().username,
-        hostname: os.hostname()
+        hostname: os.hostname(),
+        email: global.currentUserEmail || 'mhuss@cbcsclaims.com',
+        isAdmin: global.currentUserIsAdmin || false
     };
 });
 
@@ -840,7 +850,10 @@ ipcMain.on('navigation-detected', (event, data) => {
 async function searchClaimEmails(claimNumber) {
     try {
         console.log(`Searching emails for claim: ${claimNumber}`);
-        const emails = await emailService.searchEmails('mhuss@cbcsclaims.com', claimNumber);
+        const userEmail = global.currentUserEmail || 'mhuss@cbcsclaims.com'; // Fallback
+        console.log(`Using email: ${userEmail}`);
+        
+        const emails = await emailService.searchEmails(userEmail, claimNumber);
 
         const emailCount = emails ? emails.length : 0;
         console.log(`Found ${emailCount} email(s) for claim ${claimNumber}`);

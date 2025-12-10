@@ -25,20 +25,57 @@ public class MetricsController : ControllerBase
         return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
     }
 
-    [HttpPost("session/start")]
-    public async Task<ActionResult<Session>> StartSession([FromBody] string userId)
+    [HttpGet("user/{username}")]
+    public async Task<ActionResult<User>> GetUser(string username)
     {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null)
+            return NotFound();
+        
+        return Ok(user);
+    }
+
+    [HttpPost("session/start")]
+    public async Task<ActionResult<object>> StartSession([FromBody] string username)
+    {
+        // Find or create user
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null)
+        {
+            user = new User
+            {
+                Username = username,
+                Email = $"{username}@cbcsclaims.com", // Default email pattern
+                IsAdmin = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Created new user {Username}", username);
+        }
+
+        // Update last login
+        user.LastLoginAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
         var session = new Session
         {
-            UserId = userId,
+            UserId = username,
             StartTime = DateTime.UtcNow
         };
 
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Started session {SessionId} for user {UserId}", session.Id, userId);
-        return Ok(session);
+        _logger.LogInformation("Started session {SessionId} for user {UserId}", session.Id, username);
+
+        return Ok(new { 
+            id = session.Id, 
+            userId = session.UserId, 
+            startTime = session.StartTime,
+            userEmail = user.Email,
+            isAdmin = user.IsAdmin
+        });
     }
 
     [HttpPost("claim/start")]

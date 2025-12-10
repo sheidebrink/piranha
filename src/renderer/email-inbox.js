@@ -1,6 +1,14 @@
 const { ipcRenderer } = require('electron');
 
-const USER_EMAIL = 'mhuss@cbcsclaims.com';
+let USER_EMAIL = 'mhuss@cbcsclaims.com'; // Default fallback
+
+// Get user email from main process
+window.electronAPI.getUserInfo().then(userInfo => {
+    // This will be updated when we add user email to getUserInfo
+    USER_EMAIL = userInfo.email || USER_EMAIL;
+}).catch(() => {
+    console.log('Using default email');
+});
 let currentFolder = 'inbox';
 let selectedEmailId = null;
 
