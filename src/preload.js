@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // API Status
   onApiStatus: (callback) => ipcRenderer.on('api-status', (event, data) => callback(data)),
+  getApiStatus: () => ipcRenderer.invoke('get-api-status'),
+  
+  // User Info
+  getUserInfo: () => ipcRenderer.invoke('get-user-info'),
   
   // Utilities
   clearSession: () => ipcRenderer.invoke('clear-session'),

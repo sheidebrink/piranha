@@ -23,6 +23,7 @@ const sessionStats = document.getElementById('sessionStats');
 const toastContainer = document.getElementById('toastContainer');
 const envIndicator = document.getElementById('envIndicator');
 const apiStatus = document.getElementById('apiStatus');
+const userIndicator = document.getElementById('userIndicator');
 const versionIndicator = document.getElementById('versionIndicator');
 
 console.log('Main renderer elements:', {
@@ -31,6 +32,7 @@ console.log('Main renderer elements:', {
   toastContainer: !!toastContainer,
   envIndicator: !!envIndicator,
   apiStatus: !!apiStatus,
+  userIndicator: !!userIndicator,
   versionIndicator: !!versionIndicator
 });
 
@@ -52,6 +54,18 @@ if (window.electronAPI && window.electronAPI.getSettings) {
   });
 } else {
   console.log('electronAPI.getSettings not available yet');
+}
+
+// Load and display user info
+if (window.electronAPI && window.electronAPI.getUserInfo) {
+  window.electronAPI.getUserInfo().then(userInfo => {
+    if (userIndicator) {
+      userIndicator.textContent = userInfo.username;
+    }
+  }).catch(error => {
+    console.error('Failed to get user info:', error);
+    if (userIndicator) userIndicator.textContent = 'Unknown User';
+  });
 }
 
 function updateApiStatus(connected) {

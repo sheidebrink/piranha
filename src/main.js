@@ -193,7 +193,10 @@ app.whenReady().then(async () => {
 
         if (useApi) {
             console.log('✅ Using API for metrics tracking');
-            await apiService.startSession('default_user');
+            const os = require('os');
+            const username = os.userInfo().username;
+            console.log('Starting session for user:', username);
+            await apiService.startSession(username);
             console.log('✓ API session started');
         } else {
             console.log('⚠️  API unavailable, using local database');
@@ -678,6 +681,14 @@ ipcMain.handle('get-tabs', async () => {
 
 ipcMain.handle('get-settings', async () => {
     return settings;
+});
+
+ipcMain.handle('get-user-info', async () => {
+    const os = require('os');
+    return {
+        username: os.userInfo().username,
+        hostname: os.hostname()
+    };
 });
 
 // IPC handlers for nested web tabs
