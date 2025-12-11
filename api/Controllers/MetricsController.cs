@@ -81,8 +81,7 @@ public class MetricsController : ControllerBase
             return NotFound();
 
         // Check if user has any sessions or claims
-        var hasData = await _context.Sessions.AnyAsync(s => s.UserId == user.Username) ||
-                      await _context.Claims.AnyAsync(c => c.SessionId != null);
+        var hasData = await _context.Sessions.AnyAsync(s => s.UserId == user.Id);
 
         if (hasData)
         {
@@ -126,7 +125,8 @@ public class MetricsController : ControllerBase
 
         var session = new Session
         {
-            UserId = username,
+            UserId = user.Id,  // Use the actual user ID as foreign key
+            Username = username,  // Keep username for backward compatibility
             StartTime = DateTime.UtcNow
         };
 
@@ -236,5 +236,75 @@ public class MetricsController : ControllerBase
             .ToListAsync();
 
         return Ok(metrics);
+    }
+
+    [HttpGet("user/{userId}/metrics")]
+    public async Task<ActionResult<UserMetrics>> GetUserMetrics(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return NotFound();
+
+        // Get user sessions with related data
+        var sessions = await _context.Sessions
+            .Include(s => s.Claims)
+            .Include(s => s.Events)
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+
+        // Calculate metrics
+        var totalSessions = sessions.Count;
+        var allClaims = sessions.SelectMany(s => s.Claims).ToList();
+        var completedClaims = allClaims.Where(c => c.DurationSeconds.HasValue).ToList();
+        var totalClaims = allClaims.Count;
+        var avgClaimDuration = completedClaims.Any() ? completedClaims.Average(c => c.DurationSeconds!.Value) : 0;
+        var totalEvents = sessions.SelectMany(s => s.Events).Count();
+        var lastActivity = sessions.FirstOrDefault()?.StartTime;
+
+        // Recent sessions (last 10)
+        var recentSessions = sessions.Take(10).Select(s => new SessionSummaryWithDetails
+        {
+            SessionId = s.Id,
+            StartTime = s.StartTime,
+            EndTime = s.EndTime,
+            ClaimsProcessed = s.Claims.Count,
+            AvgClaimDuration = s.Claims.Where(c => c.DurationSeconds.HasValue).Any() 
+                ? s.Claims.Where(c => c.DurationSeconds.HasValue).Average(c => c.DurationSeconds!.Value) 
+                : 0,
+            TotalTimeSeconds = s.EndTime.HasValue 
+                ? (int)(s.EndTime.Value - s.StartTime).TotalSeconds 
+                : 0,
+            TotalEvents = s.Events.Count
+        }).ToList();
+
+        // Claim type breakdown
+        var claimTypeBreakdown = completedClaims
+            .GroupBy(c => c.ClaimType)
+            .Select(g => new ClaimTypeMetrics
+            {
+                ClaimType = g.Key,
+                TotalClaims = g.Count(),
+                AvgDuration = g.Average(c => c.DurationSeconds!.Value),
+                MinDuration = g.Min(c => c.DurationSeconds!.Value),
+                MaxDuration = g.Max(c => c.DurationSeconds!.Value)
+            })
+            .ToList();
+
+        var userMetrics = new UserMetrics
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            TotalSessions = totalSessions,
+            TotalClaims = totalClaims,
+            AvgClaimDuration = avgClaimDuration,
+            TotalEvents = totalEvents,
+            LastActivity = lastActivity,
+            RecentSessions = recentSessions,
+            ClaimTypeBreakdown = claimTypeBreakdown
+        };
+
+        return Ok(userMetrics);
     }
 }

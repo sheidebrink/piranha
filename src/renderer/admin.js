@@ -37,6 +37,7 @@ function setupUserActionListeners() {
   // Use event delegation for dynamically created buttons
   const editButtons = document.querySelectorAll('.edit-btn');
   const deleteButtons = document.querySelectorAll('.delete-btn');
+  const metricsButtons = document.querySelectorAll('.metrics-btn');
   
   editButtons.forEach(button => {
     button.addEventListener('click', (e) => {
@@ -51,6 +52,14 @@ function setupUserActionListeners() {
       const userId = parseInt(e.target.getAttribute('data-user-id'));
       console.log('Delete button clicked for user:', userId);
       deleteUser(userId);
+    });
+  });
+  
+  metricsButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      const userId = parseInt(e.target.getAttribute('data-user-id'));
+      console.log('Metrics button clicked for user:', userId);
+      viewUserMetrics(userId);
     });
   });
 }
@@ -101,6 +110,9 @@ function renderUsers() {
         <div class="actions">
           <button class="btn btn-primary btn-small edit-btn" data-user-id="${user.id}">
             Edit
+          </button>
+          <button class="btn btn-secondary btn-small metrics-btn" data-user-id="${user.id}">
+            Metrics
           </button>
           <button class="btn btn-danger btn-small delete-btn" data-user-id="${user.id}">
             Delete
@@ -282,6 +294,24 @@ async function deleteUser(userId) {
 }
 
 // No longer need global assignments since we're using proper event listeners
+
+async function viewUserMetrics(userId) {
+  const user = users.find(u => u.id === userId);
+  if (!user) {
+    console.error('User not found:', userId);
+    return;
+  }
+
+  console.log('Opening user metrics for:', user.username);
+  
+  // Open user metrics in a new window
+  try {
+    await window.electronAPI.openUserMetrics(userId);
+  } catch (error) {
+    console.error('Failed to open user metrics:', error);
+    showNotification('Failed to open user metrics', 'error');
+  }
+}
 
 function showNotification(message, type = 'info') {
   // Create notification element

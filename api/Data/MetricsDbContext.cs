@@ -47,9 +47,16 @@ public class MetricsDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Username).HasColumnName("username");
             entity.Property(e => e.StartTime).HasColumnName("start_time").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.TotalClaims).HasColumnName("total_claims").HasDefaultValue(0);
+            
+            // Foreign key relationship
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.Sessions)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Claim>(entity =>
@@ -64,6 +71,12 @@ public class MetricsDbContext : DbContext
             entity.Property(e => e.StartTime).HasColumnName("start_time").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.DurationSeconds).HasColumnName("duration_seconds");
+            
+            // Foreign key relationship
+            entity.HasOne(e => e.Session)
+                  .WithMany(s => s.Claims)
+                  .HasForeignKey(e => e.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MetricEvent>(entity =>
@@ -76,6 +89,17 @@ public class MetricsDbContext : DbContext
             entity.Property(e => e.EventType).HasColumnName("event_type");
             entity.Property(e => e.EventData).HasColumnName("event_data");
             entity.Property(e => e.Timestamp).HasColumnName("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            
+            // Foreign key relationships
+            entity.HasOne(e => e.Session)
+                  .WithMany(s => s.Events)
+                  .HasForeignKey(e => e.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+                  
+            entity.HasOne(e => e.Claim)
+                  .WithMany(c => c.Events)
+                  .HasForeignKey(e => e.ClaimId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

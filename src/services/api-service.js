@@ -173,6 +173,18 @@ class ApiService {
             return null;
         }
     }
+
+    async getUserMetrics(userId) {
+        if (!this.isConnected) return null;
+
+        try {
+            const response = await axios.get(`${this.baseUrl}/metrics/user/${userId}/metrics`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get user metrics:', error.message);
+            return null;
+        }
+    }
 }
 
 module.exports = ApiService;

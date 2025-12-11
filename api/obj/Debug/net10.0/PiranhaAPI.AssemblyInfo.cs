@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PiranhaAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+22abe9abfb854ea6c513cbfbad45dc250af7e94c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d64ba88c815a41644a31ff32ce9d37edf1275ecd")]
 [assembly: System.Reflection.AssemblyProductAttribute("PiranhaAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PiranhaAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

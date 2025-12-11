@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>User Metrics</title>
+  <link rel="stylesheet" href="user-metrics.css">
+</head>
+<body>
+  <div class="metrics-container">
+    <div class="metrics-header">
+      <div class="header-content">
+        <button id="backBtn" class="btn btn-secondary">← Back to Admin</button>
+        <div class="user-info">
+          <h1 id="userTitle">User Metrics</h1>
+          <p id="userSubtitle">Loading user information...</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="metricsContent" class="metrics-content">
+      <div class="loading">Loading metrics...</div>
+    </div>
+  </div>
+
+  <script src="user-metrics.js"></script>
+</body>
+</html>

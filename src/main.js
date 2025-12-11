@@ -1103,6 +1103,53 @@ ipcMain.handle('delete-user', async (event, userId) => {
     return null;
 });
 
+ipcMain.handle('get-user-metrics', async (event, userId) => {
+    if (useApi && apiService) {
+        return await apiService.getUserMetrics(userId);
+    } else {
+        // TODO: Implement local user metrics if needed
+        return null;
+    }
+});
+
+ipcMain.handle('open-user-metrics', async (event, userId) => {
+    const { BrowserWindow } = require('electron');
+    const path = require('path');
+    
+    // Create new window for user metrics
+    const metricsWindow = new BrowserWindow({
+        width: 1400,
+        height: 900,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
+        },
+        title: 'User Metrics',
+        icon: path.join(__dirname, '../assets/icon.png'),
+        show: false
+    });
+    
+    // Load the user metrics page with userId parameter
+    const metricsPath = path.join(__dirname, 'renderer', 'user-metrics.html');
+    await metricsWindow.loadFile(metricsPath, {
+        query: { userId: userId.toString() }
+    });
+    
+    // Show window when ready
+    metricsWindow.once('ready-to-show', () => {
+        metricsWindow.show();
+    });
+    
+    // Open dev tools in development
+    if (process.env.NODE_ENV === 'development') {
+        metricsWindow.webContents.openDevTools();
+    }
+    
+    console.log(`Opened user metrics window for user ID: ${userId}`);
+    return true;
+});
+
 ipcMain.handle('clear-session', async () => {
     const { session } = require('electron');
     const persistentSession = session.fromPartition('persist:ivos');

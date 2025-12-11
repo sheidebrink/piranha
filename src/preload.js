@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllUsers: () => ipcRenderer.invoke('get-all-users'),
   updateUser: (userId, userData) => ipcRenderer.invoke('update-user', userId, userData),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
+  getUserMetrics: (userId) => ipcRenderer.invoke('get-user-metrics', userId),
+  openUserMetrics: (userId) => ipcRenderer.invoke('open-user-metrics', userId),
   
   // Utilities
   clearSession: () => ipcRenderer.invoke('clear-session'),
