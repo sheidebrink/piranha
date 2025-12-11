@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 class ApiService {
-    constructor(baseUrl = 'http://localhost:5000/api') {
+    constructor(baseUrl = 'http://localhost:5555/api') {
         this.baseUrl = baseUrl;
         this.isConnected = false;
         this.sessionId = null;
@@ -76,7 +76,15 @@ class ApiService {
             console.error('Failed to update user:', error.message);
             console.error('Error response:', error.response?.data);
             console.error('Error status:', error.response?.status);
-            return null;
+            
+            // Throw the error with the server message if available
+            if (error.response?.data?.message) {
+                throw new Error(error.response.data.message);
+            } else if (error.response?.status === 400) {
+                throw new Error('Bad request - please check the email format and try again');
+            } else {
+                throw new Error(`Failed to update user: ${error.message}`);
+            }
         }
     }
 

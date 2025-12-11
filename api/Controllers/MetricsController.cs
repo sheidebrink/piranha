@@ -50,13 +50,27 @@ public class MetricsController : ControllerBase
         if (user == null)
             return NotFound();
 
+        // Check if email is already taken by another user (case-insensitive)
+        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower() && u.Id != id);
+        if (existingUser != null)
+        {
+            return BadRequest(new { message = $"Email '{request.Email}' is already in use by another user." });
+        }
+
         user.Email = request.Email;
         user.IsAdmin = request.IsAdmin;
 
-        await _context.SaveChangesAsync();
-        _logger.LogInformation("Updated user {UserId}: Email={Email}, IsAdmin={IsAdmin}", id, request.Email, request.IsAdmin);
-
-        return Ok(user);
+        try
+        {
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Updated user {UserId}: Email={Email}, IsAdmin={IsAdmin}", id, request.Email, request.IsAdmin);
+            return Ok(user);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error updating user {UserId}", id);
+            return BadRequest(new { message = "Failed to update user. The email might already be in use." });
+        }
     }
 
     [HttpDelete("user/{id}")]

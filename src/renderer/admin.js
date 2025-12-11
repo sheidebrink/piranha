@@ -168,6 +168,13 @@ async function handleSaveUser(e) {
   const emailValue = document.getElementById('editEmail').value;
   const isAdminValue = document.getElementById('editIsAdmin').checked;
   
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(emailValue)) {
+    showNotification('Please enter a valid email address', 'error');
+    return;
+  }
+  
   const userData = {
     email: emailValue,
     isAdmin: isAdminValue
@@ -176,6 +183,7 @@ async function handleSaveUser(e) {
   console.log('Attempting to save user:', editingUser.id);
   console.log('Original user data:', editingUser);
   console.log('New user data:', userData);
+  console.log('Email validation passed:', emailRegex.test(emailValue));
   
   try {
     // Disable form
