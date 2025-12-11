@@ -66,3 +66,4 @@ C:\src\Piranha\api\obj\Debug\net10.0\refint\PiranhaAPI.dll
 C:\src\Piranha\api\obj\Debug\net10.0\PiranhaAPI.pdb
 C:\src\Piranha\api\obj\Debug\net10.0\PiranhaAPI.genruntimeconfig.cache
 C:\src\Piranha\api\obj\Debug\net10.0\ref\PiranhaAPI.dll
+C:\src\Piranha\api\obj\Debug\net10.0\PiranhaAPI.sourcelink.json

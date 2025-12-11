@@ -26,6 +26,7 @@ let emailService;
 let emailTabId = null; // Top-level email tab
 let webContainerTabId = null; // Top-level web container tab
 let metricsTabId = null; // Top-level metrics tab
+let adminTabId = null; // Top-level admin tab
 let splashWindow = null;
 
 // Window bounds management
@@ -108,6 +109,9 @@ function createWindow() {
 
     // Load the control panel UI
     mainWindow.loadFile('src/renderer/index.html');
+
+    // Open DevTools in a separate window for debugging
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
 
     // Wait for main window to be ready before creating tabs
     mainWindow.webContents.on('did-finish-load', () => {
@@ -194,17 +198,31 @@ app.whenReady().then(async () => {
         if (useApi) {
             console.log('✅ Using API for metrics tracking');
             const os = require('os');
-            const username = os.userInfo().username;
-            console.log('Starting session for user:', username);
+            const fullUsername = os.userInfo().username;
+            // Extract just the username part (remove domain if present) and normalize to lowercase
+            const rawUsername = fullUsername.includes('\\') ? fullUsername.split('\\')[1] : fullUsername;
+            const username = rawUsername.toLowerCase();
+            console.log('Full username:', fullUsername);
+            console.log('Using username:', username);
             const sessionData = await apiService.startSession(username);
             if (sessionData) {
                 console.log('✓ API session started');
                 console.log('User email:', sessionData.userEmail);
                 console.log('Is admin:', sessionData.isAdmin);
+                console.log('Username:', username);
                 
                 // Store user info globally for email searches
                 global.currentUserEmail = sessionData.userEmail;
                 global.currentUserIsAdmin = sessionData.isAdmin;
+                console.log('User is admin:', sessionData.isAdmin);
+                
+                // Always create admin tab (after main window is ready)
+                // Delay admin tab creation until after main window is fully loaded
+                setTimeout(() => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        createAdminTab();
+                    }
+                }, 1000);
             }
         } else {
             console.log('⚠️  API unavailable, using local database');
@@ -212,6 +230,36 @@ app.whenReady().then(async () => {
             console.log('✓ Database initialized');
             metricsTracker = new MetricsTracker(db);
             console.log('✓ Metrics tracker initialized');
+            
+            // Ensure current user exists in local database
+            const os = require('os');
+            const fullUsername = os.userInfo().username;
+            const rawUsername = fullUsername.includes('\\') ? fullUsername.split('\\')[1] : fullUsername;
+            const username = rawUsername.toLowerCase(); // Normalize to lowercase
+            
+            let user = db.getUser(username);
+            if (!user) {
+                console.log(`Creating new local user: ${username}`);
+                db.createUser(username);
+                user = db.getUser(username);
+                console.log('✓ Local user created');
+            } else {
+                console.log(`Found existing local user: ${username}`);
+                db.updateLastLogin(username);
+            }
+            
+            // Store user info globally
+            global.currentUserEmail = user.email;
+            global.currentUserIsAdmin = user.is_admin === 1;
+            console.log('Local user email:', user.email);
+            console.log('Local user is admin:', user.is_admin === 1);
+            
+            // Always create admin tab even when API is unavailable
+            setTimeout(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    createAdminTab();
+                }
+            }, 1000);
         }
 
         // Initialize email service
@@ -357,6 +405,36 @@ function createMetricsTab() {
         view: browserView,
         url: 'metrics://view',
         title: '📊 Metrics',
+        closable: false
+    });
+
+    sendTopLevelTabsUpdate();
+    return tabId;
+}
+
+function createAdminTab() {
+    const tabId = ++topLevelTabCounter;
+    adminTabId = tabId;
+
+    const browserView = new BrowserView({
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false
+        }
+    });
+
+    browserView.webContents.loadFile('src/renderer/admin.html');
+
+    // Open DevTools for admin tab for debugging
+    browserView.webContents.on('did-finish-load', () => {
+        browserView.webContents.openDevTools({ mode: 'detach' });
+    });
+
+    topLevelViews.set(tabId, {
+        view: browserView,
+        url: 'admin://users',
+        title: '⚙️ Admin',
         closable: false
     });
 
@@ -691,10 +769,18 @@ ipcMain.handle('get-settings', async () => {
     return settings;
 });
 
+ipcMain.handle('get-api-status', async () => {
+    return { connected: useApi, apiUrl: settings.apiUrl };
+});
+
 ipcMain.handle('get-user-info', async () => {
     const os = require('os');
+    const fullUsername = os.userInfo().username;
+    const username = fullUsername.includes('\\') ? fullUsername.split('\\')[1] : fullUsername;
+    
     return {
-        username: os.userInfo().username,
+        username: username,
+        fullUsername: fullUsername,
         hostname: os.hostname(),
         email: global.currentUserEmail || 'mhuss@cbcsclaims.com',
         isAdmin: global.currentUserIsAdmin || false
@@ -934,6 +1020,87 @@ ipcMain.handle('get-session-summary', async () => {
         return metricsTracker.getSessionSummary();
     }
     return { claims_processed: 0, avg_claim_duration: 0, total_time_seconds: 0 };
+});
+
+// Admin functions
+ipcMain.handle('get-all-users', async () => {
+    if (useApi && apiService) {
+        return await apiService.getAllUsers();
+    } else if (db) {
+        // Return local users with API-compatible format
+        const users = db.getAllUsers();
+        return users.map(user => ({
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.is_admin === 1,
+            createdAt: user.created_at,
+            lastLoginAt: user.last_login_at
+        }));
+    }
+    return [];
+});
+
+ipcMain.handle('update-user', async (event, userId, userData) => {
+    console.log('IPC update-user called:', { userId, userData, useApi });
+    
+    if (useApi && apiService) {
+        try {
+            console.log('Calling API updateUser...');
+            const result = await apiService.updateUser(userId, userData);
+            console.log('API updateUser result:', result);
+            return result;
+        } catch (error) {
+            console.error('API updateUser error:', error);
+            throw error;
+        }
+    } else if (db) {
+        // Update local user
+        try {
+            console.log('Updating local user...');
+            db.updateUser(userId, userData.email, userData.isAdmin);
+            console.log(`Updated local user ${userId}: email=${userData.email}, isAdmin=${userData.isAdmin}`);
+            
+            // Return updated user
+            const user = db.query('SELECT * FROM users WHERE id = ?', [userId])[0];
+            console.log('Retrieved updated user from DB:', user);
+            
+            if (user) {
+                const result = {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    isAdmin: user.is_admin === 1,
+                    createdAt: user.created_at,
+                    lastLoginAt: user.last_login_at
+                };
+                console.log('Returning user result:', result);
+                return result;
+            }
+        } catch (error) {
+            console.error('Failed to update local user:', error);
+            throw error;
+        }
+    }
+    console.log('No API or DB available, returning null');
+    return null;
+});
+
+ipcMain.handle('delete-user', async (event, userId) => {
+    if (useApi && apiService) {
+        return await apiService.deleteUser(userId);
+    } else if (db) {
+        // Delete local user
+        try {
+            db.deleteUser(userId);
+            console.log(`Deleted local user ${userId}`);
+            return { message: 'User deleted successfully' };
+        } catch (error) {
+            console.error('Failed to delete local user:', error);
+            return null;
+        }
+    }
+    return null;
 });
 
 ipcMain.handle('clear-session', async () => {

@@ -28,30 +28,82 @@ public class MetricsController : ControllerBase
     [HttpGet("user/{username}")]
     public async Task<ActionResult<User>> GetUser(string username)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        var normalizedUsername = username.ToLowerInvariant();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalizedUsername);
         if (user == null)
             return NotFound();
         
         return Ok(user);
     }
 
+    [HttpGet("users")]
+    public async Task<ActionResult<List<User>>> GetAllUsers()
+    {
+        var users = await _context.Users.OrderBy(u => u.Username).ToListAsync();
+        return Ok(users);
+    }
+
+    [HttpPut("user/{id}")]
+    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+            return NotFound();
+
+        user.Email = request.Email;
+        user.IsAdmin = request.IsAdmin;
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Updated user {UserId}: Email={Email}, IsAdmin={IsAdmin}", id, request.Email, request.IsAdmin);
+
+        return Ok(user);
+    }
+
+    [HttpDelete("user/{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+            return NotFound();
+
+        // Check if user has any sessions or claims
+        var hasData = await _context.Sessions.AnyAsync(s => s.UserId == user.Username) ||
+                      await _context.Claims.AnyAsync(c => c.SessionId != null);
+
+        if (hasData)
+        {
+            // Instead of hard delete, we could soft delete or return an error
+            // For now, we'll allow deletion but log a warning
+            _logger.LogWarning("Deleting user {UserId} who has associated data", id);
+        }
+
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Deleted user {UserId}: {Username}", id, user.Username);
+        return Ok(new { message = "User deleted successfully" });
+    }
+
     [HttpPost("session/start")]
     public async Task<ActionResult<object>> StartSession([FromBody] string username)
     {
-        // Find or create user
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        // Normalize username to lowercase for case-insensitive comparison
+        var normalizedUsername = username.ToLowerInvariant();
+        
+        // Find or create user (case-insensitive)
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalizedUsername);
         if (user == null)
         {
             user = new User
             {
-                Username = username,
-                Email = $"{username}@cbcsclaims.com", // Default email pattern
+                Username = normalizedUsername,
+                Email = $"{normalizedUsername}@cbcsclaims.com", // Default email pattern
                 IsAdmin = false,
                 CreatedAt = DateTime.UtcNow
             };
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Created new user {Username}", username);
+            _logger.LogInformation("Created new user {Username}", normalizedUsername);
         }
 
         // Update last login

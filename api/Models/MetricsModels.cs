@@ -73,3 +73,9 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
 }
+
+public class UpdateUserRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public bool IsAdmin { get; set; }
+}

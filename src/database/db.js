@@ -11,6 +11,15 @@ class DatabaseManager {
 
   initializeTables() {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        email TEXT,
+        is_admin BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_login_at DATETIME
+      );
+
       CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT,
@@ -74,6 +83,42 @@ class DatabaseManager {
 
   queryOne(sql, params = []) {
     return this.db.prepare(sql).get(params);
+  }
+
+  // User management methods
+  getUser(username) {
+    return this.queryOne('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', [username]);
+  }
+
+  getAllUsers() {
+    return this.query('SELECT * FROM users ORDER BY username');
+  }
+
+  createUser(username, email = null, isAdmin = false) {
+    const normalizedUsername = username.toLowerCase();
+    const defaultEmail = email || `${normalizedUsername}@cbcsclaims.com`;
+    return this.execute(
+      'INSERT INTO users (username, email, is_admin, created_at, last_login_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      [normalizedUsername, defaultEmail, isAdmin ? 1 : 0]
+    );
+  }
+
+  updateUser(id, email, isAdmin) {
+    return this.execute(
+      'UPDATE users SET email = ?, is_admin = ? WHERE id = ?',
+      [email, isAdmin ? 1 : 0, id]
+    );
+  }
+
+  deleteUser(id) {
+    return this.execute('DELETE FROM users WHERE id = ?', [id]);
+  }
+
+  updateLastLogin(username) {
+    return this.execute(
+      'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER(?)',
+      [username]
+    );
   }
 
   close() {

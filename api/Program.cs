@@ -26,11 +26,25 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Create database if it doesn't exist
+// Create database if it doesn't exist and seed data
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MetricsDbContext>();
     db.Database.EnsureCreated();
+    
+    // Seed admin user if not exists
+    if (!db.Users.Any(u => u.Username == "sheidebr"))
+    {
+        db.Users.Add(new PiranhaAPI.Models.User
+        {
+            Username = "sheidebr",
+            Email = "mhuss@cbcsclaims.com",
+            IsAdmin = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+        Console.WriteLine("Seeded admin user: sheidebr");
+    }
 }
 
 // Configure the HTTP request pipeline

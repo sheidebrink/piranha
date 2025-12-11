@@ -31,6 +31,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // User Info
   getUserInfo: () => ipcRenderer.invoke('get-user-info'),
   
+  // Admin functions
+  getAllUsers: () => ipcRenderer.invoke('get-all-users'),
+  updateUser: (userId, userData) => ipcRenderer.invoke('update-user', userId, userData),
+  deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
+  
   // Utilities
   clearSession: () => ipcRenderer.invoke('clear-session'),
   hideBrowserView: () => ipcRenderer.invoke('hide-browser-view'),

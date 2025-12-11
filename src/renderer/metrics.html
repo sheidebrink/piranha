@@ -9,30 +9,43 @@
   <div class="metrics-container">
     <h1>📊 Performance Metrics</h1>
     
-    <div class="metrics-section">
-      <h2>Current Session</h2>
-      <div id="sessionMetrics" class="metric-cards">
-        <div class="metric-card">
-          <div class="metric-label">Claims Processed</div>
-          <div class="metric-value" id="claimsProcessed">0</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Average Duration</div>
-          <div class="metric-value" id="avgDuration">0m</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Total Time</div>
-          <div class="metric-value" id="totalTime">0m</div>
-        </div>
+    <!-- API Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+      <div class="connection-message">
+        <h3>🔌 API Connection Required</h3>
+        <p>Metrics data requires an active API connection. Click the button below to test the connection.</p>
+        <button id="testConnectionBtn" class="test-connection-btn">🔄 Test API Connection</button>
+        <div id="connectionResult" class="connection-result"></div>
       </div>
     </div>
+    
+    <!-- Metrics Content (hidden when API not connected) -->
+    <div id="metricsContent" class="metrics-content hidden">
+      <div class="metrics-section">
+        <h2>Current Session</h2>
+        <div id="sessionMetrics" class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-label">Claims Processed</div>
+            <div class="metric-value" id="claimsProcessed">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Average Duration</div>
+            <div class="metric-value" id="avgDuration">0m</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Total Time</div>
+            <div class="metric-value" id="totalTime">0m</div>
+          </div>
+        </div>
+      </div>
 
-    <div class="metrics-section">
-      <h2>By Claim Type</h2>
-      <div id="claimTypeMetrics" class="metrics-table"></div>
+      <div class="metrics-section">
+        <h2>By Claim Type</h2>
+        <div id="claimTypeMetrics" class="metrics-table"></div>
+      </div>
+
+      <button id="refreshBtn" class="refresh-btn">🔄 Refresh</button>
     </div>
-
-    <button id="refreshBtn" class="refresh-btn">🔄 Refresh</button>
   </div>
 
   <script src="metrics.js"></script>

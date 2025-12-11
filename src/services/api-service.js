@@ -52,6 +52,46 @@ class ApiService {
         }
     }
 
+    async getAllUsers() {
+        if (!this.isConnected) return null;
+
+        try {
+            const response = await axios.get(`${this.baseUrl}/metrics/users`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get all users:', error.message);
+            return null;
+        }
+    }
+
+    async updateUser(userId, userData) {
+        if (!this.isConnected) return null;
+
+        try {
+            console.log('API Service updateUser:', { userId, userData, url: `${this.baseUrl}/metrics/user/${userId}` });
+            const response = await axios.put(`${this.baseUrl}/metrics/user/${userId}`, userData);
+            console.log('API Service updateUser response:', response.status, response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to update user:', error.message);
+            console.error('Error response:', error.response?.data);
+            console.error('Error status:', error.response?.status);
+            return null;
+        }
+    }
+
+    async deleteUser(userId) {
+        if (!this.isConnected) return null;
+
+        try {
+            const response = await axios.delete(`${this.baseUrl}/metrics/user/${userId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to delete user:', error.message);
+            return null;
+        }
+    }
+
     async startClaim(claimData) {
         if (!this.isConnected || !this.sessionId) return null;
 

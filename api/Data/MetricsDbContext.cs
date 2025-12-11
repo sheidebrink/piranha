@@ -30,7 +30,7 @@ public class MetricsDbContext : DbContext
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
             
-            // Seed data
+            // Seed admin user
             entity.HasData(new User
             {
                 Id = 1,
