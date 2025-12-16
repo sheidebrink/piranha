@@ -329,7 +329,18 @@ app.on('window-all-closed', () => {
 
 // Helper functions for top-level tab management
 function createUserSpecificTabs() {
-    // Create email tab only if user has a valid email address and email service is available
+    // Check if API is connected - required for both email and admin tabs
+    if (!useApi) {
+        console.log('⚠️ API is not connected, email and admin tabs will not be created');
+        // Switch to the first available tab (Web or Metrics)
+        const availableTabs = Array.from(topLevelViews.keys());
+        if (availableTabs.length > 0) {
+            switchToTopLevelTab(availableTabs[0]); // Usually Web Container
+        }
+        return;
+    }
+    
+    // Create email tab only if API is connected, user has a valid email address and email service is available
     const hasValidEmail = global.currentUserEmail && 
                          global.currentUserEmail.trim() !== '' &&
                          global.currentUserEmail !== 'null' &&
@@ -340,7 +351,7 @@ function createUserSpecificTabs() {
     const emailServiceAvailable = emailService !== null;
     
     if (hasValidEmail && emailServiceAvailable) {
-        console.log('✓ User has valid email address and email service is available, creating email tab:', global.currentUserEmail);
+        console.log('✓ API connected, user has valid email address and email service is available, creating email tab:', global.currentUserEmail);
         createEmailTab();
     } else {
         if (!hasValidEmail) {
@@ -351,9 +362,9 @@ function createUserSpecificTabs() {
         }
     }
     
-    // Create admin tab only for admin users
+    // Create admin tab only if API is connected and user is admin
     if (global.currentUserIsAdmin) {
-        console.log('✓ User is admin, creating admin tab');
+        console.log('✓ API connected and user is admin, creating admin tab');
         createAdminTab();
     } else {
         console.log('⚠️ User is not admin, admin tab will not be created');
