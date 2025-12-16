@@ -115,13 +115,11 @@ function createWindow() {
 
     // Wait for main window to be ready before creating tabs
     mainWindow.webContents.on('did-finish-load', () => {
-        // Create top-level tabs
-        createEmailTab(); // Email tab (top-level)
+        // Create core tabs (email tab will be created later based on user info)
         createWebContainerTab(); // Web container tab (top-level, contains nested tabs)
         createMetricsTab(); // Metrics tab (top-level)
 
-        // Switch to email tab first
-        switchToTopLevelTab(emailTabId);
+        // Initial tab will be set after user info is loaded
     });
 
     mainWindow.on('resize', () => {
@@ -216,11 +214,10 @@ app.whenReady().then(async () => {
                 global.currentUserIsAdmin = sessionData.isAdmin;
                 console.log('User is admin:', sessionData.isAdmin);
                 
-                // Always create admin tab (after main window is ready)
-                // Delay admin tab creation until after main window is fully loaded
+                // Create user-specific tabs after user info is loaded
                 setTimeout(() => {
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        createAdminTab();
+                        createUserSpecificTabs();
                     }
                 }, 1000);
             }
@@ -254,10 +251,10 @@ app.whenReady().then(async () => {
             console.log('Local user email:', user.email);
             console.log('Local user is admin:', user.is_admin === 1);
             
-            // Always create admin tab even when API is unavailable
+            // Create user-specific tabs after user info is loaded
             setTimeout(() => {
                 if (mainWindow && !mainWindow.isDestroyed()) {
-                    createAdminTab();
+                    createUserSpecificTabs();
                 }
             }, 1000);
         }
@@ -331,6 +328,46 @@ app.on('window-all-closed', () => {
 });
 
 // Helper functions for top-level tab management
+function createUserSpecificTabs() {
+    // Create email tab only if user has a valid email address and email service is available
+    const hasValidEmail = global.currentUserEmail && 
+                         global.currentUserEmail.trim() !== '' &&
+                         global.currentUserEmail !== 'null' &&
+                         global.currentUserEmail !== 'undefined' &&
+                         !global.currentUserEmail.includes('noemail') &&
+                         !global.currentUserEmail.includes('no-email');
+    
+    const emailServiceAvailable = emailService !== null;
+    
+    if (hasValidEmail && emailServiceAvailable) {
+        console.log('✓ User has valid email address and email service is available, creating email tab:', global.currentUserEmail);
+        createEmailTab();
+    } else {
+        if (!hasValidEmail) {
+            console.log('⚠️ User has no valid email address, email tab will not be created. Email:', global.currentUserEmail);
+        }
+        if (!emailServiceAvailable) {
+            console.log('⚠️ Email service is not available, email tab will not be created');
+        }
+    }
+    
+    // Create admin tab only for admin users
+    if (global.currentUserIsAdmin) {
+        console.log('✓ User is admin, creating admin tab');
+        createAdminTab();
+    } else {
+        console.log('⚠️ User is not admin, admin tab will not be created');
+    }
+    
+    // Switch to the first available tab
+    const availableTabs = Array.from(topLevelViews.keys());
+    if (availableTabs.length > 0) {
+        // Prefer email tab if available, otherwise web container
+        const preferredTab = emailTabId || webContainerTabId;
+        switchToTopLevelTab(preferredTab);
+    }
+}
+
 function createEmailTab() {
     const tabId = ++topLevelTabCounter;
     emailTabId = tabId;
